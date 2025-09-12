@@ -35,6 +35,7 @@ import {
   IconButton,
   Tooltip,
   useToast,
+  Select,
 } from '@chakra-ui/react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -48,11 +49,13 @@ import {
   FiMail,
   FiMoreHorizontal,
 } from 'react-icons/fi'
-import { MdEmail, MdAccountBox } from 'react-icons/md'
+import { MdEmail, MdAccountBox, MdBusiness, MdWork } from 'react-icons/md'
+import { FaYahoo } from 'react-icons/fa'
 import { useEmailStore } from '../stores/emailStore'
 import { Layout } from '../components/layout/Layout'
 import { SyncProgress } from '../components/SyncProgress'
 import { type EmailAccount, getAuthToken } from '../services/api'
+import { Office365Panel, IMAPPanel } from '../components/NewProviderPanels'
 
 // Validation schemas
 const gmailSchema = z.object({
@@ -68,8 +71,23 @@ const exchangeSchema = z.object({
   domain: z.string().optional(),
 })
 
+const office365Schema = z.object({
+  email: z.string().email('Please enter a valid Office 365 email address'),
+})
+
+const imapSchema = z.object({
+  provider: z.enum(['yahoo', 'outlook', 'custom_imap']),
+  email: z.string().email('Please enter a valid email address'),
+  password: z.string().min(1, 'Password is required'),
+  imap_server: z.string().optional(),
+  imap_port: z.string().optional(),
+  security: z.enum(['SSL', 'TLS', 'STARTTLS', 'NONE']).optional(),
+})
+
 type GmailFormData = z.infer<typeof gmailSchema>
 type ExchangeFormData = z.infer<typeof exchangeSchema>
+type Office365FormData = z.infer<typeof office365Schema>
+type ImapFormData = z.infer<typeof imapSchema>
 
 // Minimal Linear/Notion style helper functions
 const getProviderIcon = (provider: string) => {
@@ -78,6 +96,14 @@ const getProviderIcon = (provider: string) => {
       return MdEmail
     case 'exchange':
       return MdAccountBox
+    case 'office365':
+      return MdBusiness
+    case 'yahoo':
+      return FaYahoo
+    case 'outlook':
+      return MdWork
+    case 'custom_imap':
+      return FiMail
     default:
       return MdEmail
   }
@@ -113,6 +139,21 @@ export const EmailAccounts = () => {
     defaultValues: {
       server_url: 'https://exchange01.teknolojikutusu.com/EWS/Exchange.asmx',
       domain: 'bilisimcenter.com',
+    },
+  })
+
+  // Office 365 form
+  const office365Form = useForm<Office365FormData>({
+    resolver: zodResolver(office365Schema),
+  })
+
+  // IMAP form
+  const imapForm = useForm<ImapFormData>({
+    resolver: zodResolver(imapSchema),
+    defaultValues: {
+      provider: 'yahoo',
+      security: 'SSL',
+      imap_port: '993',
     },
   })
 
@@ -227,6 +268,8 @@ export const EmailAccounts = () => {
     clearAccountsError()
     gmailForm.reset()
     exchangeForm.reset()
+    office365Form.reset()
+    imapForm.reset()
     onOpen()
   }
 
@@ -410,6 +453,18 @@ export const EmailAccounts = () => {
                   <HStack spacing={2}>
                     <Icon as={MdAccountBox} color="gray.600" boxSize={4} />
                     <Text>Exchange</Text>
+                  </HStack>
+                </Tab>
+                <Tab fontSize="sm" color="gray.600" _selected={{ color: 'gray.900', borderColor: 'gray.900' }}>
+                  <HStack spacing={2}>
+                    <Icon as={MdBusiness} color="gray.600" boxSize={4} />
+                    <Text>Office 365</Text>
+                  </HStack>
+                </Tab>
+                <Tab fontSize="sm" color="gray.600" _selected={{ color: 'gray.900', borderColor: 'gray.900' }}>
+                  <HStack spacing={2}>
+                    <Icon as={FiMail} color="gray.600" boxSize={4} />
+                    <Text>Other IMAP</Text>
                   </HStack>
                 </Tab>
               </TabList>
@@ -607,6 +662,56 @@ export const EmailAccounts = () => {
                     </VStack>
                   </form>
                 </TabPanel>
+
+                {/* Office 365 Panel */}
+                <Office365Panel 
+                  form={office365Form} 
+                  onSubmit={async (data) => {
+                    // Office 365 requires OAuth flow
+                    toast({
+                      title: 'OAuth Required',
+                      description: 'Redirecting to Microsoft login...',
+                      status: 'info',
+                      duration: 3000,
+                    })
+                  }}
+                />
+
+                {/* Other IMAP Panel */}
+                <IMAPPanel 
+                  form={imapForm} 
+                  onSubmit={async (data) => {
+                    // Handle IMAP account addition
+                    const response = await fetch('http://localhost:8081/api/accounts/imap', {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${getAuthToken()}`,
+                        'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(data),
+                    })
+                    
+                    if (response.ok) {
+                      toast({
+                        title: 'IMAP account added',
+                        description: `Successfully added ${data.email}`,
+                        status: 'success',
+                        duration: 3000,
+                      })
+                      imapForm.reset()
+                      onClose()
+                      loadAccounts()
+                    } else {
+                      const error = await response.json()
+                      toast({
+                        title: 'Failed to add account',
+                        description: error.error || 'An error occurred',
+                        status: 'error',
+                        duration: 3000,
+                      })
+                    }
+                  }}
+                />
               </TabPanels>
             </Tabs>
 

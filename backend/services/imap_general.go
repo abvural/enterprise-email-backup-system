@@ -1,0 +1,605 @@
+package services
+
+import (
+	"context"
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"net"
+	"strings"
+	"time"
+
+	"emailprojectv2/database"
+	"emailprojectv2/models"
+	"emailprojectv2/storage"
+
+	imapv2 "github.com/emersion/go-imap/v2"
+	"github.com/emersion/go-imap/v2/imapclient"
+	"github.com/emersion/go-message/mail"
+	"github.com/google/uuid"
+	"github.com/minio/minio-go/v7"
+	"golang.org/x/oauth2"
+	"gorm.io/gorm"
+)
+
+type IMAPGeneralService struct {
+	Host         string
+	Port         int
+	Username     string
+	Password     string
+	AuthMethod   string
+	UseSSL       bool
+	UseTLS       bool
+	UseSTARTTLS  bool
+	AccountID    uuid.UUID
+	ProviderType models.ProviderType
+	oauth2Config *oauth2.Config
+}
+
+// OAuth2 configurations for different providers
+var OAuth2Configs = map[models.ProviderType]*oauth2.Config{
+	models.ProviderYahoo: {
+		ClientID:     "", // Will be set from config
+		ClientSecret: "", // Will be set from config
+		Scopes:       []string{"mail-r", "mail-w"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://api.login.yahoo.com/oauth2/request_auth",
+			TokenURL: "https://api.login.yahoo.com/oauth2/get_token",
+		},
+		RedirectURL: "http://localhost:8080/api/oauth/yahoo/callback",
+	},
+	models.ProviderOutlook: {
+		ClientID:     "", // Will be set from config
+		ClientSecret: "", // Will be set from config
+		Scopes:       []string{"https://outlook.office.com/IMAP.AccessAsUser.All", "offline_access"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
+			TokenURL: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+		},
+		RedirectURL: "http://localhost:8080/api/oauth/outlook/callback",
+	},
+}
+
+func NewIMAPGeneralService(host string, port int, username, password, authMethod string, accountID uuid.UUID, providerType models.ProviderType) *IMAPGeneralService {
+	service := &IMAPGeneralService{
+		Host:         host,
+		Port:         port,
+		Username:     username,
+		Password:     password,
+		AuthMethod:   authMethod,
+		AccountID:    accountID,
+		ProviderType: providerType,
+	}
+
+	// Set connection security based on provider defaults
+	switch providerType {
+	case models.ProviderYahoo:
+		service.UseSSL = true
+	case models.ProviderOutlook:
+		service.UseSSL = true
+	case models.ProviderCustomIMAP:
+		// For custom IMAP, security settings will be set explicitly
+	}
+
+	// Set OAuth2 config if applicable
+	if config, exists := OAuth2Configs[providerType]; exists {
+		service.oauth2Config = config
+	}
+
+	return service
+}
+
+func (s *IMAPGeneralService) SetSecuritySettings(useSSL, useTLS, useSTARTTLS bool) {
+	s.UseSSL = useSSL
+	s.UseTLS = useTLS
+	s.UseSTARTTLS = useSTARTTLS
+}
+
+func (s *IMAPGeneralService) SetOAuth2Config(clientID, clientSecret string) {
+	if s.oauth2Config != nil {
+		s.oauth2Config.ClientID = clientID
+		s.oauth2Config.ClientSecret = clientSecret
+	}
+}
+
+func (s *IMAPGeneralService) GetAuthURL(state string) string {
+	if s.oauth2Config == nil {
+		return ""
+	}
+	return s.oauth2Config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+}
+
+func (s *IMAPGeneralService) ExchangeCodeForToken(ctx context.Context, code string) (*oauth2.Token, error) {
+	if s.oauth2Config == nil {
+		return nil, fmt.Errorf("OAuth2 not configured for this provider")
+	}
+
+	token, err := s.oauth2Config.Exchange(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("failed to exchange code for token: %v", err)
+	}
+
+	// Store token in database
+	err = s.updateTokenInDB(token.AccessToken, token.RefreshToken, token.Expiry)
+	if err != nil {
+		log.Printf("Warning: failed to store token in database: %v", err)
+	}
+
+	return token, nil
+}
+
+func (s *IMAPGeneralService) updateTokenInDB(accessToken, refreshToken string, expiresAt time.Time) error {
+	var oauthToken database.OAuthToken
+	err := database.DB.Where("account_id = ?", s.AccountID).First(&oauthToken).Error
+	
+	if err == gorm.ErrRecordNotFound {
+		// Create new token record
+		oauthToken = database.OAuthToken{
+			AccountID:    s.AccountID,
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			TokenType:    "Bearer",
+			ExpiresAt:    expiresAt,
+			Scope:        strings.Join(s.oauth2Config.Scopes, " "),
+		}
+		return database.DB.Create(&oauthToken).Error
+	} else if err != nil {
+		return err
+	}
+
+	// Update existing token
+	oauthToken.AccessToken = accessToken
+	if refreshToken != "" {
+		oauthToken.RefreshToken = refreshToken
+	}
+	oauthToken.ExpiresAt = expiresAt
+	
+	return database.DB.Save(&oauthToken).Error
+}
+
+func (s *IMAPGeneralService) refreshOAuth2Token(ctx context.Context) (*oauth2.Token, error) {
+	var oauthToken database.OAuthToken
+	err := database.DB.Where("account_id = ?", s.AccountID).First(&oauthToken).Error
+	if err != nil {
+		return nil, fmt.Errorf("no OAuth token found: %v", err)
+	}
+
+	if oauthToken.RefreshToken == "" {
+		return nil, fmt.Errorf("no refresh token available")
+	}
+
+	token, err := s.oauth2Config.TokenSource(ctx, &oauth2.Token{
+		RefreshToken: oauthToken.RefreshToken,
+	}).Token()
+	if err != nil {
+		return nil, err
+	}
+
+	// Update token in database
+	err = s.updateTokenInDB(token.AccessToken, token.RefreshToken, token.Expiry)
+	if err != nil {
+		log.Printf("Warning: failed to update token in database: %v", err)
+	}
+
+	return token, nil
+}
+
+func (s *IMAPGeneralService) TestConnection() error {
+	client, err := s.connect()
+	if err != nil {
+		return fmt.Errorf("failed to connect to IMAP server: %v", err)
+	}
+	defer client.Close()
+
+	log.Printf("✅ IMAP connection successful to %s:%d", s.Host, s.Port)
+	return nil
+}
+
+func (s *IMAPGeneralService) connect() (*imapclient.Client, error) {
+	var conn net.Conn
+	var err error
+
+	address := fmt.Sprintf("%s:%d", s.Host, s.Port)
+
+	// Create connection based on security settings
+	if s.UseSSL {
+		tlsConfig := &tls.Config{
+			ServerName: s.Host,
+		}
+		conn, err = tls.Dial("tcp", address, tlsConfig)
+	} else {
+		conn, err = net.Dial("tcp", address)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to %s: %v", address, err)
+	}
+
+	// Create IMAP client
+	client, err := imapclient.New(conn, nil)
+	if err != nil {
+		conn.Close()
+		return nil, fmt.Errorf("failed to create IMAP client: %v", err)
+	}
+
+	// Upgrade to TLS if needed
+	if s.UseSTARTTLS && !s.UseSSL {
+		if err := client.StartTLS(&tls.Config{ServerName: s.Host}); err != nil {
+			client.Close()
+			return nil, fmt.Errorf("failed to start TLS: %v", err)
+		}
+	}
+
+	// Authenticate
+	if err := s.authenticate(client); err != nil {
+		client.Close()
+		return nil, fmt.Errorf("authentication failed: %v", err)
+	}
+
+	return client, nil
+}
+
+func (s *IMAPGeneralService) authenticate(client *imapclient.Client) error {
+	switch s.AuthMethod {
+	case "oauth2", "xoauth2":
+		return s.authenticateOAuth2(client)
+	case "password", "app_password":
+		return client.Login(s.Username, s.Password).Wait()
+	default:
+		return fmt.Errorf("unsupported authentication method: %s", s.AuthMethod)
+	}
+}
+
+func (s *IMAPGeneralService) authenticateOAuth2(client *imapclient.Client) error {
+	// Get token from database
+	var oauthToken database.OAuthToken
+	err := database.DB.Where("account_id = ?", s.AccountID).First(&oauthToken).Error
+	if err != nil {
+		return fmt.Errorf("no OAuth token found: %v", err)
+	}
+
+	// Check if token is expired and refresh if needed
+	if oauthToken.IsExpiringSoon() {
+		ctx := context.Background()
+		token, err := s.refreshOAuth2Token(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to refresh token: %v", err)
+		}
+		oauthToken.AccessToken = token.AccessToken
+	}
+
+	// Create XOAUTH2 string
+	authString := fmt.Sprintf("user=%s\001auth=Bearer %s\001\001", s.Username, oauthToken.AccessToken)
+
+	// Use XOAUTH2 authentication
+	return client.Authenticate("XOAUTH2", authString).Wait()
+}
+
+func (s *IMAPGeneralService) SyncEmailsWithProgress(accountID uuid.UUID) error {
+	progress := ProgressManager.StartSync(accountID)
+	return s.syncEmailsImpl(accountID, progress)
+}
+
+func (s *IMAPGeneralService) SyncEmails(accountID uuid.UUID) error {
+	return s.syncEmailsImpl(accountID, nil)
+}
+
+func (s *IMAPGeneralService) syncEmailsImpl(accountID uuid.UUID, progress *models.SyncProgress) error {
+	if progress != nil {
+		progress.UpdateStatus("connecting", fmt.Sprintf("Connecting to %s...", s.Host), 0, 0, 0)
+	}
+
+	client, err := s.connect()
+	if err != nil {
+		if progress != nil {
+			progress.UpdateStatus("error", fmt.Sprintf("Connection failed: %v", err), 0, 0, 0)
+		}
+		return err
+	}
+	defer client.Close()
+
+	// Get last sync date for incremental sync
+	var lastSyncDate *time.Time
+	err = database.DB.QueryRow(`
+		SELECT last_sync_date FROM email_accounts 
+		WHERE id = $1
+	`, accountID).Scan(&lastSyncDate)
+	if err != nil {
+		log.Printf("Error fetching last sync date: %v", err)
+	}
+
+	if progress != nil {
+		progress.UpdateStatus("fetching", "Selecting INBOX...", 0, 0, 0)
+	}
+
+	// Select INBOX
+	_, err = client.Select("INBOX", nil).Wait()
+	if err != nil {
+		if progress != nil {
+			progress.UpdateStatus("error", fmt.Sprintf("Failed to select INBOX: %v", err), 0, 0, 0)
+		}
+		return fmt.Errorf("failed to select INBOX: %v", err)
+	}
+
+	// Build search criteria for incremental sync
+	var searchCriteria *imapv2.SearchCriteria
+	if lastSyncDate != nil {
+		searchCriteria = &imapv2.SearchCriteria{
+			Since: *lastSyncDate,
+		}
+	} else {
+		searchCriteria = &imapv2.SearchCriteria{
+			All: true,
+		}
+	}
+
+	if progress != nil {
+		progress.UpdateStatus("searching", "Searching for emails...", 0, 0, 0)
+	}
+
+	// Search for messages
+	uids, err := client.UIDSearch(searchCriteria, nil).Wait()
+	if err != nil {
+		if progress != nil {
+			progress.UpdateStatus("error", fmt.Sprintf("Search failed: %v", err), 0, 0, 0)
+		}
+		return fmt.Errorf("failed to search messages: %v", err)
+	}
+
+	totalMessages := len(uids)
+	if progress != nil {
+		progress.UpdateStatus("syncing", fmt.Sprintf("Syncing %d emails...", totalMessages), totalMessages, 0, 0)
+	}
+
+	processedCount := 0
+	errorCount := 0
+
+	// Process messages in batches
+	batchSize := 50
+	for i := 0; i < len(uids); i += batchSize {
+		end := i + batchSize
+		if end > len(uids) {
+			end = len(uids)
+		}
+
+		batch := uids[i:end]
+		if err := s.processBatch(client, accountID, batch, &processedCount, &errorCount, progress, totalMessages); err != nil {
+			log.Printf("Error processing batch: %v", err)
+			errorCount += len(batch) - (processedCount - (i * batchSize))
+		}
+	}
+
+	// Update last sync date
+	_, err = database.DB.Exec(`
+		UPDATE email_accounts 
+		SET last_sync_date = CURRENT_TIMESTAMP 
+		WHERE id = $1
+	`, accountID)
+	if err != nil {
+		log.Printf("Error updating last sync date: %v", err)
+	}
+
+	if progress != nil {
+		status := "completed"
+		message := fmt.Sprintf("Sync completed: %d emails processed", processedCount)
+		if errorCount > 0 {
+			message = fmt.Sprintf("Sync completed with errors: %d processed, %d errors", processedCount, errorCount)
+		}
+		progress.UpdateStatus(status, message, totalMessages, processedCount, errorCount)
+	}
+
+	return nil
+}
+
+func (s *IMAPGeneralService) processBatch(client *imapclient.Client, accountID uuid.UUID, uids []uint32, processedCount, errorCount *int, progress *models.SyncProgress, totalMessages int) error {
+	if len(uids) == 0 {
+		return nil
+	}
+
+	// Create UID set
+	uidSet := imapv2.UIDSet{}
+	for _, uid := range uids {
+		uidSet.AddNum(uid)
+	}
+
+	// Fetch message metadata
+	fetchOptions := &imapv2.FetchOptions{
+		Envelope: true,
+		BodyStructure: true,
+		UID: true,
+		InternalDate: true,
+	}
+
+	messages, err := client.UIDFetch(uidSet, fetchOptions, nil).Collect()
+	if err != nil {
+		return fmt.Errorf("failed to fetch messages: %v", err)
+	}
+
+	for _, msg := range messages {
+		if err := s.processMessage(client, accountID, msg); err != nil {
+			log.Printf("Error processing message UID %d: %v", msg.UID, err)
+			*errorCount++
+		} else {
+			*processedCount++
+		}
+
+		if progress != nil {
+			progress.UpdateStatus("syncing", 
+				fmt.Sprintf("Processing email %d of %d", *processedCount + *errorCount, totalMessages),
+				totalMessages, *processedCount, *errorCount)
+		}
+	}
+
+	return nil
+}
+
+func (s *IMAPGeneralService) processMessage(client *imapclient.Client, accountID uuid.UUID, msg *imapv2.FetchMessageData) error {
+	messageUID := fmt.Sprintf("%d", msg.UID)
+	
+	// Check if email already exists
+	var exists bool
+	err := database.DB.QueryRow(`
+		SELECT EXISTS(SELECT 1 FROM email_index WHERE message_id = $1 AND account_id = $2)
+	`, messageUID, accountID).Scan(&exists)
+	if err != nil {
+		return err
+	}
+	if exists {
+		log.Printf("Email UID %s already exists, skipping", messageUID)
+		return nil
+	}
+
+	// Fetch full message body
+	bodySection := &imapv2.FetchItemBodySection{
+		Specifier: imapv2.PartSpecifierNone,
+	}
+	
+	uidSet := imapv2.UIDSet{}
+	uidSet.AddNum(msg.UID)
+	
+	fetchOptions := &imapv2.FetchOptions{
+		BodySection: []*imapv2.FetchItemBodySection{bodySection},
+	}
+
+	fullMessages, err := client.UIDFetch(uidSet, fetchOptions, nil).Collect()
+	if err != nil {
+		return fmt.Errorf("failed to fetch full message: %v", err)
+	}
+
+	if len(fullMessages) == 0 {
+		return fmt.Errorf("no message body found")
+	}
+
+	fullMessage := fullMessages[0]
+	bodyReader := fullMessage.BodySection[bodySection]
+	
+	if bodyReader == nil {
+		return fmt.Errorf("no body section found")
+	}
+
+	// Parse email
+	mailReader, err := mail.CreateReader(bodyReader)
+	if err != nil {
+		return fmt.Errorf("failed to create mail reader: %v", err)
+	}
+
+	// Prepare email data
+	emailData := EmailData{
+		MessageID: messageUID,
+		Date:      msg.InternalDate,
+		Folder:    "INBOX",
+		Headers:   make(map[string][]string),
+	}
+
+	// Extract envelope data
+	if msg.Envelope != nil {
+		emailData.Subject = msg.Envelope.Subject
+		
+		// Extract sender
+		if len(msg.Envelope.From) > 0 {
+			from := msg.Envelope.From[0]
+			emailData.From = []map[string]string{{
+				"email": from.Address(),
+				"name":  from.PersonalName,
+			}}
+		}
+
+		// Extract recipients
+		for _, to := range msg.Envelope.To {
+			emailData.To = append(emailData.To, map[string]string{
+				"email": to.Address(),
+				"name":  to.PersonalName,
+			})
+		}
+	}
+
+	// Read message parts
+	for {
+		part, err := mailReader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Printf("Error reading message part: %v", err)
+			continue
+		}
+
+		switch header := part.Header.(type) {
+		case *mail.InlineHeader:
+			// Read body content
+			bodyBytes, err := io.ReadAll(part.Body)
+			if err != nil {
+				log.Printf("Error reading body: %v", err)
+				continue
+			}
+			emailData.Body = string(bodyBytes)
+
+		case *mail.AttachmentHeader:
+			// Handle attachment
+			attachmentData := AttachmentData{
+				Filename:    header.Filename,
+				ContentType: header.Get("Content-Type"),
+			}
+
+			// Read attachment content
+			attachmentContent, err := io.ReadAll(part.Body)
+			if err != nil {
+				log.Printf("Error reading attachment: %v", err)
+				continue
+			}
+
+			attachmentData.Size = int64(len(attachmentContent))
+
+			// Store attachment in MinIO
+			attachmentPath := fmt.Sprintf("attachments/%s/%s", accountID.String(), attachmentData.Filename)
+			_, err = storage.MinioClient.PutObject(
+				context.Background(),
+				"email-attachments",
+				attachmentPath,
+				strings.NewReader(string(attachmentContent)),
+				int64(len(attachmentContent)),
+				minio.PutObjectOptions{ContentType: attachmentData.ContentType},
+			)
+			if err == nil {
+				attachmentData.MinioPath = attachmentPath
+			}
+
+			emailData.Attachments = append(emailData.Attachments, attachmentData)
+		}
+	}
+
+	// Store email in MinIO
+	emailJSON, err := json.Marshal(emailData)
+	if err != nil {
+		return err
+	}
+
+	minioPath := fmt.Sprintf("emails/%s/%s.json", accountID.String(), messageUID)
+	_, err = storage.MinioClient.PutObject(
+		context.Background(),
+		"email-backups",
+		minioPath,
+		strings.NewReader(string(emailJSON)),
+		int64(len(emailJSON)),
+		minio.PutObjectOptions{ContentType: "application/json"},
+	)
+	if err != nil {
+		return err
+	}
+
+	// Store in database
+	senderEmail := ""
+	if len(emailData.From) > 0 {
+		senderEmail = emailData.From[0]["email"]
+	}
+
+	_, err = database.DB.Exec(`
+		INSERT INTO email_index (id, account_id, message_id, subject, sender_email, date, folder, minio_path)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (message_id, account_id) DO NOTHING
+	`, uuid.New(), accountID, messageUID, emailData.Subject, senderEmail, emailData.Date, emailData.Folder, minioPath)
+
+	return err
+}

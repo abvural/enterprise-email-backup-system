@@ -29,7 +29,7 @@ import {
   FiInbox,
   FiFolder,
 } from 'react-icons/fi'
-import { MdEmail, MdAccountBox } from 'react-icons/md'
+import { MdEmail, MdAccountBox, MdBusiness, MdWork } from 'react-icons/md'
 import { useEmailStore } from '../stores/emailStore'
 import { useAuthStore } from '../stores/authStore'
 import { Layout } from '../components/layout/Layout'
@@ -193,6 +193,14 @@ const AccountCard = ({ account, onSync, syncStatus }: AccountCardProps) => {
         return MdEmail
       case 'exchange':
         return MdAccountBox
+      case 'office365':
+        return MdBusiness
+      case 'yahoo':
+        return MdWork
+      case 'outlook':
+        return MdWork
+      case 'custom_imap':
+        return FiMail
       default:
         return MdEmail
     }
@@ -276,6 +284,8 @@ export const Dashboard = () => {
   const activeAccounts = accounts.filter(acc => acc.is_active).length
   const gmailAccounts = accounts.filter(acc => acc.provider === 'gmail').length
   const exchangeAccounts = accounts.filter(acc => acc.provider === 'exchange').length
+  const office365Accounts = accounts.filter(acc => acc.provider === 'office365').length
+  const otherAccounts = accounts.filter(acc => !['gmail', 'exchange', 'office365'].includes(acc.provider)).length
 
   // Get user's first name
   const firstName = user?.email?.split('@')[0]?.split('.')[0] || 'User'
@@ -315,7 +325,7 @@ export const Dashboard = () => {
             <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
               <ActionCard
                 title="Add Account"
-                subtitle="Connect Gmail or Exchange"
+                subtitle="Connect any email provider"
                 icon={FiPlus}
                 onClick={() => navigate('/accounts')}
               />
@@ -367,12 +377,12 @@ export const Dashboard = () => {
               <StatCard
                 title="Gmail Accounts"
                 value={gmailAccounts}
-                icon={FiMail}
+                icon={MdEmail}
               />
               <StatCard
-                title="Exchange Accounts"
-                value={exchangeAccounts}
-                icon={FiDatabase}
+                title="Office 365"
+                value={office365Accounts}
+                icon={MdBusiness}
               />
             </SimpleGrid>
           </VStack>
