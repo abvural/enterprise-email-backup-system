@@ -7,12 +7,13 @@ Bu dosya Claude Code'a Enterprise Email Backup System projesi hakkında rehberli
 **Enterprise Email Backup System**, kurumsal email yedekleme ve arşivleme çözümüdür. Gmail ve Exchange hesaplarından emailleri otomatik olarak yedekler, MinIO object storage'da saklar ve web arayüzü üzerinden erişim sağlar.
 
 ### 🎯 Temel Özellikler
-- **Çoklu Email Provider Desteği**: Gmail (IMAP) ve Exchange (EWS) 
+- **Çoklu Email Provider Desteği**: Gmail (IMAP), Exchange (EWS), Office 365 (Graph API), Yahoo, Outlook.com, Custom IMAP
 - **Güvenli Yedekleme**: MinIO S3-compatible object storage
+- **OAuth2 Authentication**: Office 365, Yahoo ve Outlook.com için modern authentication
 - **Incremental Sync**: İlk sync'ten sonra sadece yeni emailleri alır (100x performans)
 - **Real-time Progress**: Server-Sent Events (SSE) ile canlı sync durumu
 - **Modern Web Arayüzü**: React + TypeScript + Chakra UI
-- **Enterprise Security**: JWT authentication, 7 günlük token süresi
+- **Enterprise Security**: JWT authentication, OAuth2, 7 günlük token süresi
 - **PostgreSQL Database**: Hızlı arama ve indexleme
 
 ## 🚨 KRİTİK GELİŞTİRME KURALLARI
@@ -26,7 +27,8 @@ Bu dosya Claude Code'a Enterprise Email Backup System projesi hakkında rehberli
 
 ### 🎯 MVP Odağı
 - **Sadece çalışan bir proje** hedefi
-- Gmail IMAP + Exchange EWS + PostgreSQL + MinIO
+- Gmail IMAP + Exchange EWS + Office 365 Graph API + Yahoo/Outlook IMAP + PostgreSQL + MinIO
+- OAuth2 authentication desteği
 - Gereksiz karmaşıklık ekleme
 - Her feature test edilmeli
 
@@ -81,8 +83,10 @@ backend/
 │   ├── accounts.go       # Email account management
 │   └── emails.go         # Email operations
 ├── services/
-│   ├── gmail.go          # Gmail IMAP client
+│   ├── gmail_v1.go       # Gmail IMAP client
 │   ├── exchange.go       # Exchange EWS client
+│   ├── office365.go      # Office 365 Graph API client
+│   ├── imap_general.go   # General IMAP client (Yahoo, Outlook, Custom)
 │   └── storage.go        # MinIO operations
 └── database/
     └── init_database.sql # DB schema
@@ -106,16 +110,19 @@ frontend/
 
 ## 📊 DATABASE SCHEMA
 
-### Minimal 3 Tablo
+### Database Tabloları
 ```sql
 -- Users (authentication)
 users (id, email, password_hash, created_at)
 
--- Email accounts (Gmail + Exchange)  
-email_accounts (id, user_id, provider, email, credentials, created_at)
+-- Email accounts (Gmail, Exchange, Office365, Yahoo, Outlook, Custom IMAP)  
+email_accounts (id, user_id, provider, email, credentials, last_sync_date, imap_server, imap_port, security, auth_method, provider_settings, created_at)
 
 -- Email index (fast search)
-email_index (id, account_id, message_id, subject, sender, date, minio_path)
+email_index (id, account_id, message_id, subject, sender, date, minio_path, has_attachments, attachment_count, folder)
+
+-- OAuth tokens (OAuth2 authentication)
+oauth_tokens (id, account_id, access_token, refresh_token, expires_at, token_type, scope, created_at, updated_at)
 ```
 
 ## 🔧 ENVIRONMENT VARIABLES
@@ -194,9 +201,14 @@ JWT_SECRET=EmailBackupMVP2025SecretKey!
 - ✅ GitHub repository oluşturuldu ve production-ready hale getirildi
 - ✅ Duplicate email detection sistemi
 - ✅ Exchange EWS date filtering desteği
+- ✅ **Office 365 desteği eklendi** (Microsoft Graph API)
+- ✅ **Yahoo Mail desteği eklendi** (IMAP + App Password)
+- ✅ **Outlook.com desteği eklendi** (IMAP + OAuth2)
+- ✅ **Custom IMAP server desteği eklendi**
+- ✅ **OAuth2/XOAUTH2 authentication implementasyonu**
+- ✅ **Provider configuration sistemi kuruldu**
 
 ### YapılMAyacaklar
-- ❌ OAuth2 (App Password kullanıyoruz)
 - ❌ Complex email parsing
 - ❌ Real-time sync (MVP'de manual sync)
 - ❌ Advanced search (Basic search yeterli)
@@ -208,10 +220,14 @@ MVP başarılı sayılacak eğer:
 1. ✅ Kullanıcı giriş yapabilir
 2. ✅ Gmail hesabını bağlayabilir (IMAP)
 3. ✅ Exchange hesabını bağlayabilir (EWS)
-4. ✅ Email'leri senkronize edebilir
-5. ✅ Email listesini görüntüleyebilir
-6. ✅ Email detayını okuyabilir
-7. ✅ Attachment'ları indirebilir
+4. ✅ Office 365 hesabını bağlayabilir (Graph API)
+5. ✅ Yahoo Mail hesabını bağlayabilir (IMAP)
+6. ✅ Outlook.com hesabını bağlayabilir (IMAP)
+7. ✅ Custom IMAP server bağlayabilir
+8. ✅ Email'leri senkronize edebilir (tüm provider'lar için)
+9. ✅ Email listesini görüntüleyebilir
+10. ✅ Email detayını okuyabilir
+11. ✅ Attachment'ları indirebilir
 
 ---
 
@@ -267,7 +283,7 @@ npm run dev
 ---
 
 **Son Güncelleme**: 13 Ocak 2025  
-**Versiyon**: Production v1.0  
-**Status**: ✅ Production Ready
+**Versiyon**: Production v2.0  
+**Status**: ✅ Production Ready with Multi-Provider Support
 
 **UNUTMA: DİKKATLİ VE YAVAS İLERLE!** ⚠️
