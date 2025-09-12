@@ -222,6 +222,7 @@ func (h *AccountHandler) SyncAccount(c *gin.Context) {
 			gmailService := services.NewGmailServiceV1("imap.gmail.com", "993", account.Username, account.Password)
 			gmailService.SyncEmailsWithProgress(account.ID)
 		} else if account.Provider == "exchange" {
+			log.Printf("📧 Starting real Exchange email sync...")
 			exchangeService := services.NewExchangeService(account.ServerURL, account.Username, account.Password, account.Domain)
 			exchangeService.SyncEmailsWithProgress(account.ID)
 		}

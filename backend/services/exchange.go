@@ -219,15 +219,8 @@ func (es *ExchangeService) TestConnection() error {
 	log.Printf("👤 Username: %s", es.Username)
 	log.Printf("🏢 Domain: %s", es.Domain)
 
-	// Test connection by making a simple FindItem request
-	_, err := es.findItems(5) // Try to find just 5 items
-	if err != nil {
-		log.Printf("❌ Exchange connection test failed: %v", err)
-		log.Println("✅ Exchange EWS client initialized (will attempt connection during sync)")
-		return nil // Don't fail here, try during sync
-	}
-
-	log.Println("✅ Successfully connected to Exchange!")
+	// Skip connection test - will test during actual sync
+	log.Println("✅ Exchange EWS client initialized (connection will be tested during sync)")
 	return nil
 }
 
@@ -246,7 +239,7 @@ func (es *ExchangeService) SyncEmails(accountID uuid.UUID) error {
 
 // syncWithProgress performs the actual sync with optional progress tracking
 func (es *ExchangeService) syncWithProgress(accountID uuid.UUID, progress *models.SyncProgress) error {
-	log.Println("📧 Starting Exchange email sync...")
+	log.Printf("📧 Starting Exchange email sync for account: %s", accountID)
 
 	// Update progress: connecting
 	if progress != nil {
@@ -264,6 +257,9 @@ func (es *ExchangeService) syncWithProgress(accountID uuid.UUID, progress *model
 		log.Printf("❌ Failed to get account details: %v", err)
 		return fmt.Errorf("failed to get account details: %v", err)
 	}
+	
+	log.Printf("📋 Account loaded - Provider: %s, Email: %s, LastSyncDate: %v", 
+		account.Provider, account.Email, account.LastSyncDate)
 
 	// Determine sync type and date filter
 	var sinceDate *time.Time
@@ -582,8 +578,7 @@ func (es *ExchangeService) findItemsWithFilter(maxItems int, sinceDate *time.Tim
 						Value   string   `xml:"Value,attr"`
 					} `xml:"t:Constant"`
 				} `xml:"t:FieldURIOrConstant"`
-			} `xml:"t:IsGreaterThan"`
-		}{
+			}{
 				FieldURI: struct {
 					XMLName  xml.Name `xml:"t:FieldURI"`
 					FieldURI string   `xml:"FieldURI,attr"`
