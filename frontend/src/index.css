@@ -1,0 +1,97 @@
+/* Reset and base styles for Email Backup MVP */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+body {
+  font-family: "Segoe UI", "Segoe UI Web", "Segoe UI Symbol", "Helvetica Neue", Arial, sans-serif;
+  background-color: #ffffff;
+  color: #323130;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "kern";
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #201F1E;
+    color: #F3F2F1;
+  }
+}
+
+/* Remove default focus outlines - Chakra UI will handle focus styles */
+button:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection colors matching Microsoft theme */
+::selection {
+  background-color: #0078D4;
+  color: white;
+}
+
+::-moz-selection {
+  background-color: #0078D4;
+  color: white;
+}
+
+/* Scrollbar styling for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F3F2F1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #B3B0AD;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #979593;
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-track {
+    background: #323130;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: #605E5C;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: #797775;
+  }
+}
+
+/* Print styles */
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+}
