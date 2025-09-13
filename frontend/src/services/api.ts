@@ -134,7 +134,7 @@ export interface EmailAccount {
   id: string
   user_id: string
   email: string
-  provider: 'gmail' | 'exchange'
+  provider: 'gmail' | 'exchange' | 'office365' | 'yahoo' | 'outlook' | 'custom_imap'
   server_url?: string
   domain?: string
   username?: string

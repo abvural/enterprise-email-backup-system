@@ -82,7 +82,7 @@ export function isTokenExpired(claims: JWTClaims): boolean {
 }
 
 // Role checking functions
-export function isAdmin(user?: User): boolean {
+export function isAdmin(user: User | null | undefined): boolean {
   return user?.role?.name === ROLE_NAMES.ADMIN
 }
 
@@ -103,7 +103,7 @@ export function isEndUser(user?: User): boolean {
 }
 
 // Check if user has at least the specified role level
-export function hasRoleLevel(user: User | undefined, requiredLevel: number): boolean {
+export function hasRoleLevel(user: User | null | undefined, requiredLevel: number): boolean {
   if (!user?.role) {
     return false
   }
@@ -242,4 +242,24 @@ export function hasPermission(user: User | undefined, permission: Permission): b
   
   const userPermissions = rolePermissions[user.role.name] || []
   return userPermissions.includes(permission)
+}
+
+// Generic access control function
+export function canAccess(user: User | null | undefined, permissions: Permission[] = [], minRoleLevel?: number): boolean {
+  if (!user?.role) {
+    return false
+  }
+  
+  // Check minimum role level if provided
+  if (minRoleLevel !== undefined && !hasRoleLevel(user, minRoleLevel)) {
+    return false
+  }
+  
+  // Check specific permissions if provided
+  if (permissions.length > 0) {
+    return permissions.some(permission => hasPermission(user, permission))
+  }
+  
+  // If no specific requirements, return true (user is authenticated)
+  return true
 }

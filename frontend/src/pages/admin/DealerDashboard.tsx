@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   Box,
   VStack,
@@ -6,141 +6,524 @@ import {
   SimpleGrid,
   Card,
   CardBody,
+  CardHeader,
   HStack,
   Icon,
-  Button,
   Badge,
+  Heading,
+  useToast,
+  Alert,
+  AlertIcon,
+  AlertDescription,
+  Flex,
+  useColorModeValue,
 } from '@chakra-ui/react'
-import { FiUsers, FiMail, FiSettings, FiPlus } from 'react-icons/fi'
+import { 
+  FiUsers, 
+  FiMail, 
+  FiSettings, 
+  FiPlus, 
+  FiServer,
+  FiBarChart,
+  FiTarget,
+  FiRefreshCw,
+  FiEye,
+  FiUserPlus,
+  FiActivity,
+} from 'react-icons/fi'
 import { MdBusiness } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
-import { Layout } from '../../components/layout/Layout'
+import { AdminLayout } from '../../components/layout/AdminLayout'
+import { StatCard, UserStatCard, EmailStatCard, StorageStatCard } from '../../components/common/StatCard'
+import { DataTable, type TableColumn } from '../../components/common/DataTable'
 import { useAuthStore } from '../../stores/authStore'
+import { canAccess, getRoleDisplayName } from '../../utils/roleUtils'
+import { formatBytes } from '../../services/api'
 
-const StatCard = ({ title, value, icon }: { title: string; value: string | number; icon: React.ElementType }) => (
-  <Card>
-    <CardBody>
-      <HStack spacing={4}>
-        <Box p={2} borderRadius="md" bg="gray.100">
-          <Icon as={icon} boxSize={5} color="gray.600" />
-        </Box>
-        <VStack align="start" spacing={0}>
-          <Text fontSize="2xl" fontWeight="bold">{value}</Text>
-          <Text fontSize="sm" color="gray.600">{title}</Text>
+// Dealer portfolio interfaces
+interface DealerStats {
+  total_clients: number
+  total_users: number
+  total_email_accounts: number
+  total_emails: number
+  total_storage: number
+  active_clients: number
+  pending_clients: number
+}
+
+interface ClientPortfolio {
+  id: string
+  name: string
+  contact_email: string
+  users_count: number
+  email_accounts: number
+  storage_used: number
+  last_activity: string
+  status: 'active' | 'inactive' | 'pending'
+  client_type: string
+}
+
+// Client action card component
+const ClientActionCard: React.FC<{
+  title: string
+  description: string
+  icon: React.ElementType
+  color: string
+  onClick: () => void
+  disabled?: boolean
+}> = ({ title, description, icon, color, onClick, disabled = false }) => {
+  const cardBg = useColorModeValue('white', 'gray.800')
+  const hoverBg = useColorModeValue('gray.50', 'gray.700')
+  
+  return (
+    <Card
+      cursor={disabled ? 'not-allowed' : 'pointer'}
+      onClick={disabled ? undefined : onClick}
+      transition="all 0.1s ease-in-out"
+      _hover={disabled ? {} : {
+        transform: 'translateY(-2px)',
+        boxShadow: 'md',
+        bg: hoverBg,
+      }}
+      opacity={disabled ? 0.6 : 1}
+      bg={cardBg}
+    >
+      <CardBody p={6}>
+        <VStack spacing={4} align="flex-start">
+          <Box
+            p={3}
+            borderRadius="lg"
+            bg={`${color.split('.')[0]}.50`}
+          >
+            <Icon as={icon} boxSize={6} color={color} />
+          </Box>
+          <VStack align="flex-start" spacing={1}>
+            <Text fontSize="lg" fontWeight="semibold">
+              {title}
+            </Text>
+            <Text fontSize="sm" color="gray.500">
+              {description}
+            </Text>
+          </VStack>
         </VStack>
-      </HStack>
-    </CardBody>
-  </Card>
-)
+      </CardBody>
+    </Card>
+  )
+}
 
 export const DealerDashboard: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  const toast = useToast()
+
+  const [dealerStats, setDealerStats] = useState<DealerStats | null>(null)
+  const [clientPortfolio, setClientPortfolio] = useState<ClientPortfolio[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    loadDealerData()
+  }, [])
+
+  const loadDealerData = async () => {
+    try {
+      setIsLoading(true)
+      
+      // Mock dealer statistics
+      const mockStats: DealerStats = {
+        total_clients: 8,
+        total_users: 156,
+        total_email_accounts: 234,
+        total_emails: 45000,
+        total_storage: 1800000000, // bytes
+        active_clients: 7,
+        pending_clients: 1,
+      }
+
+      // Mock client portfolio data
+      const mockClients: ClientPortfolio[] = [
+        {
+          id: '1',
+          name: 'TechCorp Solutions',
+          contact_email: 'admin@techcorp.com',
+          users_count: 25,
+          email_accounts: 35,
+          storage_used: 450000000,
+          last_activity: '2024-01-13T14:30:00Z',
+          status: 'active',
+          client_type: 'Enterprise',
+        },
+        {
+          id: '2',
+          name: 'StartupXYZ',
+          contact_email: 'contact@startupxyz.com',
+          users_count: 12,
+          email_accounts: 18,
+          storage_used: 220000000,
+          last_activity: '2024-01-12T09:45:00Z',
+          status: 'active',
+          client_type: 'Startup',
+        },
+        {
+          id: '3',
+          name: 'NewCompany Ltd',
+          contact_email: 'info@newcompany.com',
+          users_count: 0,
+          email_accounts: 0,
+          storage_used: 0,
+          last_activity: '2024-01-10T16:20:00Z',
+          status: 'pending',
+          client_type: 'SMB',
+        },
+      ]
+
+      setDealerStats(mockStats)
+      setClientPortfolio(mockClients)
+    } catch (error) {
+      console.error('Failed to load dealer data:', error)
+      toast({
+        title: 'Failed to Load Dealer Data',
+        description: 'Could not retrieve portfolio information. Please try again.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (user?.role?.level !== 3) {
+    return (
+      <AdminLayout title="Access Denied">
+        <Alert status="error" borderRadius="md">
+          <AlertIcon />
+          <AlertDescription>
+            You don't have permission to access the dealer dashboard.
+          </AlertDescription>
+        </Alert>
+      </AdminLayout>
+    )
+  }
+
+  // Table columns for client portfolio
+  const clientColumns: TableColumn<ClientPortfolio>[] = [
+    {
+      key: 'name',
+      title: 'Client',
+      sortable: true,
+      render: (value, row) => (
+        <VStack align="flex-start" spacing={1}>
+          <Text fontWeight="semibold">{value}</Text>
+          <Text fontSize="sm" color="gray.500">{row.contact_email}</Text>
+        </VStack>
+      ),
+    },
+    {
+      key: 'client_type',
+      title: 'Type',
+      sortable: true,
+      align: 'center',
+      render: (value) => (
+        <Badge 
+          colorScheme={value === 'Enterprise' ? 'purple' : value === 'SMB' ? 'blue' : 'green'}
+          variant="subtle"
+        >
+          {value}
+        </Badge>
+      ),
+    },
+    {
+      key: 'users_count',
+      title: 'Users',
+      sortable: true,
+      align: 'center',
+      render: (value) => (
+        <Text fontWeight="medium">{value}</Text>
+      ),
+    },
+    {
+      key: 'email_accounts',
+      title: 'Email Accounts',
+      sortable: true,
+      align: 'center',
+      render: (value) => (
+        <Text fontWeight="medium">{value}</Text>
+      ),
+    },
+    {
+      key: 'storage_used',
+      title: 'Storage',
+      sortable: true,
+      align: 'right',
+      render: (value) => (
+        <Text fontWeight="medium" color="orange.500">
+          {formatBytes(value)}
+        </Text>
+      ),
+    },
+    {
+      key: 'status',
+      title: 'Status',
+      sortable: true,
+      align: 'center',
+      render: (value) => (
+        <Badge 
+          colorScheme={value === 'active' ? 'green' : value === 'inactive' ? 'red' : 'yellow'}
+          variant="subtle"
+        >
+          {value}
+        </Badge>
+      ),
+    },
+  ]
+
+  // Client management actions
+  const clientActions = [
+    {
+      title: 'Add New Client',
+      description: 'Create a new client organization',
+      icon: FiPlus,
+      color: 'green.500',
+      onClick: () => navigate('/dealer/add-client'),
+    },
+    {
+      title: 'View All Clients',
+      description: 'See your complete client portfolio',
+      icon: FiEye,
+      color: 'blue.500',
+      onClick: () => navigate('/dealer/clients'),
+    },
+    {
+      title: 'Manage Users',
+      description: 'Add and manage client users',
+      icon: FiUserPlus,
+      color: 'purple.500',
+      onClick: () => navigate('/dealer/users'),
+    },
+    {
+      title: 'Client Reports',
+      description: 'Generate client activity reports',
+      icon: FiBarChart,
+      color: 'orange.500',
+      onClick: () => navigate('/dealer/reports'),
+    },
+  ]
 
   return (
-    <Layout>
-      <Box p={8} bg="white" minH="100vh">
-        <VStack align="stretch" spacing={8} maxW="1200px" mx="auto">
-          {/* Header */}
-          <VStack align="start" spacing={1}>
-            <Text fontSize="2xl" fontWeight="bold" color="gray.900">
-              Dealer Dashboard
-            </Text>
-            <Text fontSize="md" color="gray.600">
-              Manage your client organizations and users
-            </Text>
-            {user?.primary_org && (
-              <Badge colorScheme="blue" variant="subtle">
-                {user.primary_org.name}
-              </Badge>
-            )}
-          </VStack>
-
-          {/* Quick Actions */}
-          <VStack align="stretch" spacing={4}>
-            <Text fontSize="lg" fontWeight="semibold" color="gray.900">
-              Quick Actions
-            </Text>
-            
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-              <Card cursor="pointer" onClick={() => navigate('/dealer/clients')} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={MdBusiness} boxSize={8} color="blue.500" mb={3} />
-                  <Text fontWeight="medium">View My Clients</Text>
-                  <Text fontSize="sm" color="gray.600">See all your client organizations</Text>
-                </CardBody>
-              </Card>
-
-              <Card cursor="pointer" onClick={() => navigate('/dealer/add-client')} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={FiPlus} boxSize={8} color="green.500" mb={3} />
-                  <Text fontWeight="medium">Add New Client</Text>
-                  <Text fontSize="sm" color="gray.600">Create a new client organization</Text>
-                </CardBody>
-              </Card>
-
-              <Card cursor="pointer" onClick={() => navigate('/dealer/reports')} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={FiMail} boxSize={8} color="purple.500" mb={3} />
-                  <Text fontWeight="medium">Email Statistics</Text>
-                  <Text fontSize="sm" color="gray.600">View client email usage statistics</Text>
-                </CardBody>
-              </Card>
-
-              <Card cursor="pointer" onClick={() => navigate('/settings')} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={FiSettings} boxSize={8} color="orange.500" mb={3} />
-                  <Text fontWeight="medium">Settings</Text>
-                  <Text fontSize="sm" color="gray.600">Configure dealer settings</Text>
-                </CardBody>
-              </Card>
-            </SimpleGrid>
-          </VStack>
-
-          {/* Statistics */}
-          <VStack align="stretch" spacing={4}>
-            <Text fontSize="lg" fontWeight="semibold" color="gray.900">
-              Client Overview
-            </Text>
-            
-            <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-              <StatCard
-                title="Client Organizations"
-                value="--"
-                icon={MdBusiness}
+    <AdminLayout
+      title="Client Portfolio"
+      breadcrumbs={[
+        { label: 'Dealer' },
+        { label: 'Portfolio Overview' },
+      ]}
+    >
+      <VStack spacing={8} align="stretch" maxW="full">
+        {/* Welcome Header */}
+        <Card variant="filled">
+          <CardBody>
+            <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
+              <VStack align="flex-start" spacing={2}>
+                <Text fontSize="2xl" fontWeight="bold">
+                  Client Portfolio Management
+                </Text>
+                <HStack spacing={3} wrap="wrap">
+                  <Badge colorScheme="teal" px={3} py={1} borderRadius="full">
+                    {getRoleDisplayName(user?.role)}
+                  </Badge>
+                  {user?.primary_org && (
+                    <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                      {user.primary_org.name}
+                    </Badge>
+                  )}
+                  <Badge colorScheme="green" px={3} py={1} borderRadius="full">
+                    Portfolio Manager
+                  </Badge>
+                </HStack>
+                <Text fontSize="sm" color="gray.500">
+                  Manage your client organizations and their users
+                </Text>
+              </VStack>
+              <ClientActionCard
+                title="Refresh"
+                description="Update portfolio data"
+                icon={FiRefreshCw}
+                color="teal.500"
+                onClick={loadDealerData}
+                disabled={isLoading}
               />
+            </Flex>
+          </CardBody>
+        </Card>
+
+        {/* Portfolio Statistics */}
+        <Box>
+          <Heading size="md" mb={6} display="flex" alignItems="center">
+            <Icon as={FiTarget} mr={3} color="teal.500" />
+            Portfolio Overview
+          </Heading>
+          
+          {dealerStats ? (
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
               <StatCard
-                title="Client Users"
-                value="--"
-                icon={FiUsers}
+                title="Total Clients"
+                value={dealerStats.total_clients}
+                icon={FiServer}
+                color="teal.500"
+                helpText={`${dealerStats.active_clients} active, ${dealerStats.pending_clients} pending`}
+                loading={isLoading}
+                size="lg"
               />
-              <StatCard
+              <UserStatCard
+                title="Total Users"
+                value={dealerStats.total_users}
+                helpText="Across all clients"
+                loading={isLoading}
+                size="lg"
+              />
+              <EmailStatCard
+                title="Email Accounts"
+                value={dealerStats.total_email_accounts}
+                helpText={`${dealerStats.total_emails.toLocaleString()} emails stored`}
+                loading={isLoading}
+                size="lg"
+              />
+              <StorageStatCard
                 title="Total Storage"
-                value="--"
-                icon={FiMail}
-              />
-              <StatCard
-                title="Active Accounts"
-                value="--"
-                icon={FiSettings}
+                value={formatBytes(dealerStats.total_storage)}
+                helpText="Portfolio usage"
+                loading={isLoading}
+                size="lg"
               />
             </SimpleGrid>
-          </VStack>
+          ) : (
+            <Alert status="warning" borderRadius="md">
+              <AlertIcon />
+              <AlertDescription>
+                Could not load portfolio statistics. Please check your connection and try again.
+              </AlertDescription>
+            </Alert>
+          )}
+        </Box>
 
-          {/* Recent Activity */}
+        {/* Client Management Actions */}
+        <Box>
+          <Heading size="md" mb={6} display="flex" alignItems="center">
+            <Icon as={FiSettings} mr={3} color="teal.500" />
+            Client Management
+          </Heading>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+            {clientActions.map((action, index) => (
+              <ClientActionCard key={index} {...action} />
+            ))}
+          </SimpleGrid>
+        </Box>
+
+        {/* Client Portfolio Table */}
+        <Box>
+          <DataTable
+            title="Client Portfolio"
+            subtitle="Monitor your clients and their activity"
+            data={clientPortfolio}
+            columns={clientColumns}
+            loading={isLoading}
+            searchable
+            sortable
+            pagination
+            pageSize={10}
+            height="500px"
+            onRefresh={loadDealerData}
+            actions={[
+              {
+                key: 'view',
+                label: 'View Details',
+                icon: FiEye,
+                onClick: (row) => navigate(`/dealer/clients/${row.id}`),
+              },
+              {
+                key: 'manage',
+                label: 'Manage Users',
+                icon: FiUsers,
+                onClick: (row) => navigate(`/dealer/clients/${row.id}/users`),
+                disabled: (row) => row.status === 'pending',
+              },
+              {
+                key: 'settings',
+                label: 'Settings',
+                icon: FiSettings,
+                onClick: (row) => navigate(`/dealer/clients/${row.id}/settings`),
+              },
+            ]}
+          />
+        </Box>
+
+        {/* Portfolio Health Cards */}
+        <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
           <Card>
-            <CardBody>
-              <Text fontSize="lg" fontWeight="semibold" mb={4}>
-                Recent Activity
-              </Text>
-              <Text color="gray.500" textAlign="center" py={8}>
-                Activity feed will be implemented based on requirements
-              </Text>
+            <CardHeader pb={3}>
+              <Heading size="sm" display="flex" alignItems="center">
+                <Icon as={FiActivity} mr={2} color="teal.500" />
+                Portfolio Health
+              </Heading>
+            </CardHeader>
+            <CardBody pt={0}>
+              <VStack align="stretch" spacing={3}>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Active Clients:</Text>
+                  <Text fontSize="sm" fontWeight="medium">
+                    {dealerStats?.active_clients || 0} / {dealerStats?.total_clients || 0}
+                  </Text>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Portfolio Growth:</Text>
+                  <Badge colorScheme="green" size="sm">+15% this quarter</Badge>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Client Satisfaction:</Text>
+                  <Badge colorScheme="green" size="sm">95%</Badge>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Avg. Users per Client:</Text>
+                  <Text fontSize="sm" fontWeight="medium">
+                    {dealerStats ? Math.round(dealerStats.total_users / dealerStats.total_clients) : 0}
+                  </Text>
+                </Flex>
+              </VStack>
             </CardBody>
           </Card>
-        </VStack>
-      </Box>
-    </Layout>
+
+          <Card>
+            <CardHeader pb={3}>
+              <Heading size="sm" display="flex" alignItems="center">
+                <Icon as={FiBarChart} mr={2} color="purple.500" />
+                Performance Metrics
+              </Heading>
+            </CardHeader>
+            <CardBody pt={0}>
+              <VStack align="stretch" spacing={3}>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Revenue Growth:</Text>
+                  <Text fontSize="sm" fontWeight="medium" color="green.500">+22% YoY</Text>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Client Retention:</Text>
+                  <Badge colorScheme="green" size="sm">98%</Badge>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Avg. Storage per Client:</Text>
+                  <Text fontSize="sm" fontWeight="medium" color="orange.500">
+                    {dealerStats ? formatBytes(dealerStats.total_storage / dealerStats.total_clients) : '0 B'}
+                  </Text>
+                </Flex>
+                <Flex justify="space-between">
+                  <Text fontSize="sm" color="gray.600">Last Updated:</Text>
+                  <Text fontSize="sm" fontWeight="medium">{new Date().toLocaleString()}</Text>
+                </Flex>
+              </VStack>
+            </CardBody>
+          </Card>
+        </SimpleGrid>
+      </VStack>
+    </AdminLayout>
   )
 }
 

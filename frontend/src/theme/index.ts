@@ -1,77 +1,140 @@
 import { extendTheme } from '@chakra-ui/react'
 
-// Linear/Notion style color palette - Ultra minimal and clean
+// Microsoft Office 365 / Fluent Design color palette
 const colors = {
-  linear: {
-    // Primary grayscale palette (main colors used)
-    gray: {
-      50: '#fafafa',   // Subtle background
-      100: '#f4f4f5',  // Card backgrounds
-      200: '#e4e4e7',  // Borders
-      300: '#d4d4d8',  // Dividers
-      400: '#a1a1aa',  // Icons
-      500: '#71717a',  // Muted text
-      600: '#52525b',  // Secondary text
-      700: '#3f3f46',  // Borders (dark mode)
-      800: '#27272a',  // Background (dark mode)
-      900: '#18181b',  // Primary text
+  // Microsoft brand colors
+  microsoft: {
+    // Primary Microsoft Blue
+    blue: {
+      50: '#f3f8ff',
+      100: '#dfeaff', 
+      200: '#c2d9ff',
+      300: '#9cc3ff',
+      400: '#70a4ff',
+      500: '#0078d4',  // Primary Microsoft Blue
+      600: '#106ebe',
+      700: '#005a9e',
+      800: '#004d8b',
+      900: '#003d70',
+    },
+    // Secondary colors from Microsoft palette
+    teal: {
+      50: '#f0fcf9',
+      100: '#d3f7ec',
+      200: '#a7eed9',
+      300: '#74e1c7',
+      400: '#20c997',  // Microsoft Teal
+      500: '#198754',
+      600: '#0d7746',
+      700: '#0a6338',
+      800: '#084c2e',
+      900: '#063925',
+    },
+    purple: {
+      50: '#f6f3ff',
+      100: '#ede6ff',
+      200: '#d9ccff',
+      300: '#c2a8ff',
+      400: '#a47eff',
+      500: '#8a63d2',  // Microsoft Purple
+      600: '#7c56c4',
+      700: '#6b47b8',
+      800: '#5a38a3',
+      900: '#4a2c89',
+    },
+    orange: {
+      50: '#fff8f1',
+      100: '#feecdc',
+      200: '#fdd5b4',
+      300: '#fcb583',
+      400: '#fa8b47',
+      500: '#ff8c00',  // Microsoft Orange
+      600: '#e67700',
+      700: '#cc6600',
+      800: '#b35500',
+      900: '#994400',
     },
   },
-  // Override Chakra defaults with Linear/Notion minimal colors
+  // Updated grays to match Office 365
   gray: {
-    50: '#fafafa',   // Almost white background
-    100: '#f4f4f5',  // Light gray background
-    200: '#e4e4e7',  // Border color
-    300: '#d4d4d8',  // Subtle dividers
-    400: '#a1a1aa',  // Icon color
-    500: '#71717a',  // Muted text
-    600: '#52525b',  // Secondary text
-    700: '#3f3f46',  // Dark borders
-    800: '#27272a',  // Dark background
-    900: '#18181b',  // Primary text/black
+    50: '#faf9f8',    // Office light background
+    100: '#f3f2f1',   // Card background
+    200: '#edebe9',   // Border
+    300: '#e1dfdd',   // Dividers
+    400: '#d2d0ce',   // Icons
+    500: '#8a8886',   // Muted text
+    600: '#605e5c',   // Secondary text
+    700: '#484644',   // Dark text
+    800: '#323130',   // Dark background
+    900: '#201f1e',   // Primary text
   },
-  // Minimal accent colors (used sparingly)
-  black: '#000000',    // Primary accent (active indicators)
-  white: '#ffffff',    // Pure white
-  // Status colors (minimal, only when needed)
+  // Office 365 semantic colors
+  blue: {
+    50: '#f3f8ff',
+    100: '#dfeaff',
+    200: '#c2d9ff',
+    300: '#9cc3ff',
+    400: '#70a4ff',
+    500: '#0078d4',   // Microsoft Blue
+    600: '#106ebe',
+    700: '#005a9e',
+    800: '#004d8b',
+    900: '#003d70',
+  },
   green: {
-    50: '#f0fdf4',
-    100: '#dcfce7', 
-    500: '#22c55e',  // Success
-    600: '#16a34a',
-    700: '#15803d',
+    50: '#f1f8e9',
+    100: '#c5e3a5',
+    200: '#8bb174',
+    300: '#52875a',
+    400: '#107c10',   // Microsoft Green
+    500: '#0e6b0e',
+    600: '#0b5a0b',
+    700: '#094a09',
+    800: '#073b07',
+    900: '#042904',
   },
   red: {
-    50: '#fef2f2',
-    100: '#fee2e2',
-    500: '#ef4444',  // Error
-    600: '#dc2626',
-    700: '#b91c1c',
+    50: '#fdf2f2',
+    100: '#fce4e4',
+    200: '#f5b7b7',
+    300: '#ed9b9b',
+    400: '#e86470',
+    500: '#d83b01',   // Microsoft Red
+    600: '#c93400',
+    700: '#b22d00',
+    800: '#9b2600',
+    900: '#7d1f00',
   },
-  blue: {
-    50: '#eff6ff',
-    100: '#dbeafe',
-    500: '#3b82f6',  // Info (minimal use)
-    600: '#2563eb',
-    700: '#1d4ed8',
+  yellow: {
+    50: '#fffef7',
+    100: '#fffceb',
+    200: '#fef7c7',
+    300: '#fef0a3',
+    400: '#fde047',
+    500: '#ffb900',   // Microsoft Yellow
+    600: '#e6a500',
+    700: '#cc9200',
+    800: '#b37e00',
+    900: '#996b00',
   },
 }
 
-// Typography - Inter font family for Linear/Notion style
+// Typography - Segoe UI font family for Office 365 style
 const fonts = {
-  heading: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
-  body: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji"',
+  heading: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
+  body: '"Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif',
 }
 
-// Typography scale following Linear/Notion minimal design
+// Typography scale following Office 365 design system
 const fontSizes = {
-  xs: '11px',      // Captions, labels
-  sm: '13px',      // Small text, meta info
-  md: '14px',      // Body text, regular content
-  lg: '16px',      // Headings, logo
-  xl: '18px',      // Page titles
-  '2xl': '20px',   // Large headings
-  '3xl': '24px',   // Display text (rare)
+  xs: '10px',      // Small captions
+  sm: '12px',      // Captions, labels
+  md: '14px',      // Body text, regular content  
+  lg: '16px',      // Subheadings
+  xl: '20px',      // Page titles
+  '2xl': '28px',   // Large headings
+  '3xl': '32px',   // Hero text
+  '4xl': '40px',   // Display text
 }
 
 // Font weights - minimal set
@@ -121,16 +184,15 @@ const space = {
   32: '128px',
 }
 
-// Component styles following Linear/Notion minimal design
+// Component styles following Office 365 Fluent Design
 const components = {
   Button: {
     baseStyle: {
-      fontWeight: 'normal',
-      borderRadius: '6px',
+      fontWeight: 'semibold',
+      borderRadius: '4px',
       minHeight: '32px',
       fontSize: 'md',
       lineHeight: 'normal',
-      border: 'none',
       cursor: 'pointer',
       display: 'inline-flex',
       alignItems: 'center',
@@ -138,10 +200,11 @@ const components = {
       textAlign: 'center',
       verticalAlign: 'middle',
       userSelect: 'none',
-      transition: 'all 0.15s ease',
+      transition: 'all 0.1s ease-in-out',
       _focus: {
-        outline: 'none',
-        boxShadow: 'none',
+        outline: '2px solid',
+        outlineColor: 'blue.500',
+        outlineOffset: '1px',
       },
       _disabled: {
         opacity: 0.4,
@@ -149,45 +212,51 @@ const components = {
       },
     },
     variants: {
-      // Primary button - black background (Linear style)
+      // Primary button - Microsoft Blue (Office 365 style)
       solid: {
-        bg: 'black',
+        bg: 'blue.500',
         color: 'white',
+        border: '1px solid transparent',
         _hover: {
-          bg: 'gray.800',
+          bg: 'blue.600',
+          transform: 'translateY(-1px)',
           _disabled: {
-            bg: 'black',
+            bg: 'blue.500',
+            transform: 'none',
           },
         },
         _active: {
-          bg: 'gray.700',
+          bg: 'blue.700',
+          transform: 'translateY(0)',
         },
       },
-      // Ghost button - minimal hover (most common)
+      // Ghost button - Office style hover
       ghost: {
         bg: 'transparent',
-        color: 'gray.600',
+        color: 'blue.500',
         _hover: {
-          bg: 'gray.50',
-          color: 'gray.900',
+          bg: 'blue.50',
+          color: 'blue.600',
         },
         _active: {
-          bg: 'gray.100',
+          bg: 'blue.100',
         },
       },
-      // Outline button - subtle border
+      // Outline button - Office 365 style border
       outline: {
-        bg: 'transparent',
-        color: 'gray.600',
+        bg: 'white',
+        color: 'blue.500',
         border: '1px solid',
-        borderColor: 'gray.200',
+        borderColor: 'blue.500',
         _hover: {
-          bg: 'gray.50',
-          borderColor: 'gray.300',
-          color: 'gray.900',
+          bg: 'blue.50',
+          borderColor: 'blue.600',
+          color: 'blue.600',
+          transform: 'translateY(-1px)',
         },
         _active: {
-          bg: 'gray.100',
+          bg: 'blue.100',
+          transform: 'translateY(0)',
         },
       },
     },
@@ -203,9 +272,9 @@ const components = {
         fontSize: 'md',
       },
       lg: {
-        minHeight: '36px',
-        px: 5,
-        fontSize: 'md',
+        minHeight: '40px',
+        px: 6,
+        fontSize: 'lg',
       },
     },
   },
@@ -216,22 +285,46 @@ const components = {
         bg: 'white',
         border: '1px solid',
         borderColor: 'gray.200',
-        boxShadow: 'none',
-        transition: 'all 0.15s ease',
+        boxShadow: '0 1.6px 3.6px 0 rgba(0,0,0,.132), 0 0.3px 0.9px 0 rgba(0,0,0,.108)',
+        transition: 'all 0.1s ease-in-out',
+        _hover: {
+          boxShadow: '0 6.4px 14.4px 0 rgba(0,0,0,.132), 0 1.2px 3.6px 0 rgba(0,0,0,.108)',
+          transform: 'translateY(-2px)',
+        },
       },
     },
     variants: {
       subtle: {
         container: {
-          bg: 'gray.50',
+          bg: 'gray.100',
           border: 'none',
+          boxShadow: 'none',
+          _hover: {
+            bg: 'gray.50',
+            boxShadow: '0 1.6px 3.6px 0 rgba(0,0,0,.132)',
+          },
         },
       },
       outline: {
         container: {
           border: '1px solid',
-          borderColor: 'gray.200',
+          borderColor: 'gray.300',
           boxShadow: 'none',
+          _hover: {
+            borderColor: 'blue.500',
+            boxShadow: '0 1.6px 3.6px 0 rgba(0,0,0,.132)',
+          },
+        },
+      },
+      filled: {
+        container: {
+          bg: 'blue.50',
+          border: 'none',
+          boxShadow: 'none',
+          _hover: {
+            bg: 'blue.100',
+            boxShadow: '0 1.6px 3.6px 0 rgba(0,0,0,.132)',
+          },
         },
       },
     },
@@ -357,16 +450,15 @@ const components = {
   },
 }
 
-// Global styles for Linear/Notion aesthetic
+// Global styles for Office 365 aesthetic
 const styles = {
   global: {
-    // Import Inter font
-    '@import': `url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap')`,
     body: {
-      bg: 'white',
+      bg: 'gray.50',
       color: 'gray.900',
       fontFeatureSettings: '"kern"',
       lineHeight: 'normal',
+      fontSize: 'md',
     },
     '*::placeholder': {
       color: 'gray.500',
@@ -378,6 +470,20 @@ const styles = {
     '.chakra-icon': {
       width: '16px',
       height: '16px',
+    },
+    // Office 365 scrollbar styling
+    '::-webkit-scrollbar': {
+      width: '8px',
+    },
+    '::-webkit-scrollbar-track': {
+      bg: 'gray.100',
+    },
+    '::-webkit-scrollbar-thumb': {
+      bg: 'gray.300',
+      borderRadius: '4px',
+      _hover: {
+        bg: 'gray.400',
+      },
     },
   },
 }
@@ -412,14 +518,15 @@ const semanticTokens = {
   },
 }
 
-// Minimal shadow system - very subtle
+// Office 365 Fluent Design shadow system
 const shadows = {
-  xs: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-  sm: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-  md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-  lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-  xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-  '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  // Fluent Design depth shadows
+  xs: '0 0.6px 1.8px rgba(0,0,0,.108), 0 0.3px 0.9px rgba(0,0,0,.132)',
+  sm: '0 1.6px 3.6px 0 rgba(0,0,0,.132), 0 0.3px 0.9px 0 rgba(0,0,0,.108)',
+  md: '0 6.4px 14.4px 0 rgba(0,0,0,.132), 0 1.2px 3.6px 0 rgba(0,0,0,.108)',
+  lg: '0 12.8px 28.8px 0 rgba(0,0,0,.132), 0 2.4px 7.2px 0 rgba(0,0,0,.108)',
+  xl: '0 25.6px 57.6px 0 rgba(0,0,0,.132), 0 4.8px 14.4px 0 rgba(0,0,0,.108)',
+  '2xl': '0 51.2px 115.2px 0 rgba(0,0,0,.132), 0 9.6px 28.8px 0 rgba(0,0,0,.108)',
   none: 'none',
 }
 

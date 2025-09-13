@@ -70,7 +70,7 @@ export const Office365Panel = ({
               }}
             />
             <FormErrorMessage fontSize="sm" color="red.500">
-              {form.formState.errors.email?.message}
+              {form.formState.errors.email?.message as string}
             </FormErrorMessage>
           </FormControl>
 
@@ -158,7 +158,7 @@ export const IMAPPanel = ({
               }}
             />
             <FormErrorMessage fontSize="sm" color="red.500">
-              {form.formState.errors.email?.message}
+              {form.formState.errors.email?.message as string}
             </FormErrorMessage>
           </FormControl>
 
@@ -186,7 +186,7 @@ export const IMAPPanel = ({
               }}
             />
             <FormErrorMessage fontSize="sm" color="red.500">
-              {form.formState.errors.password?.message}
+              {form.formState.errors.password?.message as string}
             </FormErrorMessage>
           </FormControl>
 

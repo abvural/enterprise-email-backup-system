@@ -29,10 +29,10 @@ import {
   Flex,
   useColorModeValue,
 } from '@chakra-ui/react'
-import { FiUsers, FiMail, FiSettings, FiPlus, FiTrendingUp, FiServer, FiActivity } from 'react-icons/fi'
+import { FiUsers, FiMail, FiSettings, FiPlus, FiTrendingUp, FiServer, FiActivity, FiBarChart } from 'react-icons/fi'
 import { MdBusiness } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
-import { Layout } from '../../components/layout/Layout'
+import { AdminLayout } from '../../components/layout/AdminLayout'
 import { useAuthStore } from '../../stores/authStore'
 import { statisticsAPI, formatBytes, type NetworkStats, type DealerPerformanceItem } from '../../services/api'
 
@@ -126,8 +126,22 @@ export const DistributorDashboard: React.FC = () => {
     })
   }
 
+  // Check if user has distributor role (Level 2)
+  if (user?.role?.level !== 2) {
+    return (
+      <AdminLayout>
+        <Alert status="error" borderRadius="md">
+          <AlertIcon />
+          <AlertDescription>
+            You don't have permission to access the distributor dashboard. This dashboard is only for distributor level users.
+          </AlertDescription>
+        </Alert>
+      </AdminLayout>
+    )
+  }
+
   return (
-    <Layout>
+    <AdminLayout>
       <Container maxW="7xl" py={8}>
         <VStack spacing={8} align="stretch">
           {/* Header */}
@@ -345,43 +359,87 @@ export const DistributorDashboard: React.FC = () => {
             </SimpleGrid>
           </Box>
 
-          {/* Network Health Summary */}
-          {networkStats && (
-            <Card bg={cardBg} borderLeft="4px" borderColor="purple.500">
-              <CardBody>
-                <VStack align="stretch" spacing={2}>
-                  <Heading size="sm" color="purple.500">Network Health Summary</Heading>
-                  <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                    <VStack align="start" spacing={2}>
-                      <Text fontSize="sm">
-                        <strong>Active Dealers:</strong> {networkStats.active_dealers} / {networkStats.total_dealers}
-                      </Text>
-                      <Text fontSize="sm">
-                        <strong>Network Utilization:</strong> {networkStats.total_email_accounts > 0 ? 'Active' : 'Low'}
-                      </Text>
-                      <Text fontSize="sm">
-                        <strong>Storage Efficiency:</strong> {formatBytes(networkStats.network_storage_bytes / Math.max(networkStats.total_email_accounts, 1))} per account
-                      </Text>
-                    </VStack>
-                    <VStack align="start" spacing={2}>
-                      <Text fontSize="sm">
-                        <strong>Growth Rate:</strong> {networkStats.total_clients > networkStats.total_dealers * 2 ? 'High' : 'Moderate'}
-                      </Text>
-                      <Text fontSize="sm">
-                        <strong>Email Volume:</strong> {networkStats.total_email_accounts > 50 ? 'High Volume' : 'Standard Volume'}
-                      </Text>
-                      <Text fontSize="sm">
-                        <strong>Last Updated:</strong> {new Date().toLocaleString()}
-                      </Text>
-                    </VStack>
-                  </SimpleGrid>
+        {/* Network Health Summary */}
+        {networkStats && (
+          <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
+            <Card>
+              <CardHeader pb={3}>
+                <Heading size="sm" display="flex" alignItems="center">
+                  <Icon as={FiActivity} mr={2} color="purple.500" />
+                  Network Health
+                </Heading>
+              </CardHeader>
+              <CardBody pt={0}>
+                <VStack align="stretch" spacing={3}>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Active Dealers:</Text>
+                    <Text fontSize="sm" fontWeight="medium">
+                      {networkStats.active_dealers} / {networkStats.total_dealers}
+                    </Text>
+                  </Flex>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Network Utilization:</Text>
+                    <Badge colorScheme={networkStats.total_email_accounts > 0 ? 'green' : 'yellow'} size="sm">
+                      {networkStats.total_email_accounts > 0 ? 'Active' : 'Low'}
+                    </Badge>
+                  </Flex>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Storage per Account:</Text>
+                    <Text fontSize="sm" fontWeight="medium" color="orange.500">
+                      {formatBytes(networkStats.network_storage_bytes / Math.max(networkStats.total_email_accounts, 1))}
+                    </Text>
+                  </Flex>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Network Status:</Text>
+                    <Badge colorScheme="green" size="sm">Optimal</Badge>
+                  </Flex>
                 </VStack>
               </CardBody>
             </Card>
-          )}
+
+            <Card>
+              <CardHeader pb={3}>
+                <Heading size="sm" display="flex" alignItems="center">
+                  <Icon as={FiBarChart} mr={2} color="green.500" />
+                  Performance Metrics
+                </Heading>
+              </CardHeader>
+              <CardBody pt={0}>
+                <VStack align="stretch" spacing={3}>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Growth Rate:</Text>
+                    <Badge 
+                      colorScheme={networkStats.total_clients > networkStats.total_dealers * 2 ? 'green' : 'blue'} 
+                      size="sm"
+                    >
+                      {networkStats.total_clients > networkStats.total_dealers * 2 ? 'High' : 'Moderate'}
+                    </Badge>
+                  </Flex>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Email Volume:</Text>
+                    <Badge 
+                      colorScheme={networkStats.total_email_accounts > 50 ? 'purple' : 'blue'} 
+                      size="sm"
+                    >
+                      {networkStats.total_email_accounts > 50 ? 'High Volume' : 'Standard'}
+                    </Badge>
+                  </Flex>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Network Efficiency:</Text>
+                    <Text fontSize="sm" fontWeight="medium" color="green.500">Excellent</Text>
+                  </Flex>
+                  <Flex justify="space-between">
+                    <Text fontSize="sm" color="gray.600">Last Updated:</Text>
+                    <Text fontSize="sm" fontWeight="medium">{new Date().toLocaleString()}</Text>
+                  </Flex>
+                </VStack>
+              </CardBody>
+            </Card>
+          </SimpleGrid>
+        )}
         </VStack>
       </Container>
-    </Layout>
+    </AdminLayout>
   )
 }
 

@@ -280,10 +280,12 @@ export const Dashboard = () => {
   const [storageStats, setStorageStats] = useState<TotalStorageStats | null>(null)
   const [isStorageLoading, setIsStorageLoading] = useState(true)
 
-  // Redirect to role-based dashboard
+  // Redirect to role-based dashboard - ONLY end_user should stay on this dashboard
   useEffect(() => {
     if (user?.role?.name) {
       const roleName = user.role.name
+      const roleLevel = user.role.level
+      
       switch (roleName) {
         case 'admin':
           navigate('/admin/dashboard', { replace: true })
@@ -297,16 +299,48 @@ export const Dashboard = () => {
         case 'client':
           navigate('/client/dashboard', { replace: true })
           return
-        // end_user stays on regular dashboard
+        case 'end_user':
+          // end_user (Level 5) stays on regular dashboard - this is correct
+          break
         default:
+          // If role is not recognized but has a level, redirect appropriately
+          if (roleLevel === 1) {
+            navigate('/admin/dashboard', { replace: true })
+            return
+          } else if (roleLevel === 2) {
+            navigate('/distributor/dashboard', { replace: true })
+            return
+          } else if (roleLevel === 3) {
+            navigate('/dealer/dashboard', { replace: true })
+            return
+          } else if (roleLevel === 4) {
+            navigate('/client/dashboard', { replace: true })
+            return
+          }
           break
       }
     }
-  }, [user?.role?.name, navigate])
+  }, [user?.role?.name, user?.role?.level, navigate])
+
+  // Early return for organization roles - they should never see this dashboard
+  if (user?.role?.name && user.role.name !== 'end_user') {
+    return (
+      <Layout>
+        <Box p={8} bg="white" minH="100vh">
+          <VStack align="stretch" spacing={8} maxW="1200px" mx="auto">
+            <Text>Redirecting to your role-specific dashboard...</Text>
+          </VStack>
+        </Box>
+      </Layout>
+    )
+  }
 
   useEffect(() => {
-    loadAccounts()
-  }, [loadAccounts])
+    // Only load email accounts for end_user role
+    if (user?.role?.name === 'end_user') {
+      loadAccounts()
+    }
+  }, [loadAccounts, user?.role?.name])
 
   // Load storage stats when accounts change
   useEffect(() => {

@@ -246,7 +246,7 @@ export const SyncProgress = ({ accountId, isOpen, onClose, onComplete }: SyncPro
             <Text>Email Sync Progress</Text>
           </HStack>
         </ModalHeader>
-        <ModalCloseButton isDisabled={isConnecting || (progress && !progress.is_completed && progress.status !== 'completed' && progress.status !== 'failed')} />
+        <ModalCloseButton isDisabled={isConnecting || Boolean(progress && !progress.is_completed && progress.status !== 'completed' && progress.status !== 'failed')} />
         
         <ModalBody>
           <VStack spacing={4} align="stretch">

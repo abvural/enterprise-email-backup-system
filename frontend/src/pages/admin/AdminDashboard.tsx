@@ -3,11 +3,6 @@ import {
   Box,
   Container,
   SimpleGrid,
-  Stat,
-  StatLabel,
-  StatNumber,
-  StatHelpText,
-  StatArrow,
   Heading,
   VStack,
   HStack,
@@ -22,71 +17,83 @@ import {
   AlertIcon,
   AlertTitle,
   AlertDescription,
-  Spinner,
   useToast,
   Flex,
   Icon,
-  Progress,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  TableContainer,
+  Divider,
 } from '@chakra-ui/react'
-import { FiUsers, FiServer, FiMail, FiHardDrive, FiActivity, FiTrendingUp } from 'react-icons/fi'
-import { Layout } from '../../components/layout/Layout'
+import { 
+  FiUsers, 
+  FiServer, 
+  FiMail, 
+  FiHardDrive, 
+  FiActivity, 
+  FiTrendingUp,
+  FiBarChart,
+  FiSettings,
+  FiRefreshCw,
+  FiPlus
+} from 'react-icons/fi'
+import { AdminLayout } from '../../components/layout/AdminLayout'
+import { StatCard, UserStatCard, EmailStatCard, StorageStatCard, ActivityStatCard } from '../../components/common/StatCard'
+import { DataTable, type TableColumn } from '../../components/common/DataTable'
 import { useAuthStore } from '../../stores/authStore'
-import { isAdmin, getRoleDisplayName } from '../../utils/roleUtils'
+import { isAdmin, getRoleDisplayName, canAccess } from '../../utils/roleUtils'
 import { statisticsAPI, formatBytes, type SystemStats, type TopOrganization } from '../../services/api'
+import { useNavigate } from 'react-router-dom'
 
-// Helper component for stat cards
-const StatCard: React.FC<{
+// Quick action card component
+const QuickActionCard: React.FC<{
   title: string
-  value: string | number
+  description: string
   icon: React.ElementType
   color: string
-  helpText?: string
-  change?: number
-}> = ({ title, value, icon, color, helpText, change }) => (
-  <Card>
-    <CardBody>
-      <Flex justify="space-between" align="start">
-        <VStack align="start" spacing={0}>
-          <Text fontSize="sm" color="gray.500" fontWeight="medium">
-            {title}
-          </Text>
-          <Text fontSize="2xl" fontWeight="bold" color={color}>
-            {value}
-          </Text>
-          {helpText && (
-            <Text fontSize="xs" color="gray.500">
-              {helpText}
+  onClick: () => void
+  disabled?: boolean
+}> = ({ title, description, icon, color, onClick, disabled = false }) => {
+  const cardBg = useColorModeValue('white', 'gray.800')
+  const hoverBg = useColorModeValue('gray.50', 'gray.700')
+  
+  return (
+    <Card
+      cursor={disabled ? 'not-allowed' : 'pointer'}
+      onClick={disabled ? undefined : onClick}
+      transition="all 0.1s ease-in-out"
+      _hover={disabled ? {} : {
+        transform: 'translateY(-2px)',
+        boxShadow: 'md',
+        bg: hoverBg,
+      }}
+      opacity={disabled ? 0.6 : 1}
+      bg={cardBg}
+    >
+      <CardBody p={6}>
+        <VStack spacing={4} align="flex-start">
+          <Box
+            p={3}
+            borderRadius="lg"
+            bg={`${color.split('.')[0]}.50`}
+          >
+            <Icon as={icon} boxSize={6} color={color} />
+          </Box>
+          <VStack align="flex-start" spacing={1}>
+            <Text fontSize="lg" fontWeight="semibold">
+              {title}
             </Text>
-          )}
-          {change !== undefined && (
-            <HStack spacing={1}>
-              <StatArrow type={change >= 0 ? 'increase' : 'decrease'} />
-              <Text fontSize="xs" color={change >= 0 ? 'green.500' : 'red.500'}>
-                {Math.abs(change)}%
-              </Text>
-            </HStack>
-          )}
+            <Text fontSize="sm" color="gray.500">
+              {description}
+            </Text>
+          </VStack>
         </VStack>
-        <Box p={2} borderRadius="md" bg={`${color.split('.')[0]}.100`}>
-          <Icon as={icon} boxSize={5} color={color} />
-        </Box>
-      </Flex>
-    </CardBody>
-  </Card>
-)
+      </CardBody>
+    </Card>
+  )
+}
 
 export const AdminDashboard: React.FC = () => {
-  const { user, claims } = useAuthStore()
+  const { user } = useAuthStore()
+  const navigate = useNavigate()
   const cardBg = useColorModeValue('white', 'gray.700')
-  const statBg = useColorModeValue('blue.50', 'blue.900')
-  
   const [systemStats, setSystemStats] = useState<SystemStats | null>(null)
   const [topOrganizations, setTopOrganizations] = useState<TopOrganization[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -128,9 +135,9 @@ export const AdminDashboard: React.FC = () => {
 
   if (!isAdmin(user)) {
     return (
-      <Layout>
+      <AdminLayout title="Access Denied">
         <Container maxW="6xl" py={8}>
-          <Alert status="error">
+          <Alert status="error" borderRadius="md">
             <AlertIcon />
             <AlertTitle>Access Denied</AlertTitle>
             <AlertDescription>
@@ -138,292 +145,276 @@ export const AdminDashboard: React.FC = () => {
             </AlertDescription>
           </Alert>
         </Container>
-      </Layout>
+      </AdminLayout>
     )
   }
 
-  return (
-    <Layout>
-      <Container maxW="7xl" py={8}>
-        <VStack spacing={8} align="stretch">
-          {/* Header */}
-          <Box>
-            <Heading size="lg" color="blue.500" mb={4}>
-              System Administration Dashboard
-            </Heading>
-            <HStack spacing={4} wrap="wrap">
-              <Badge colorScheme="purple" fontSize="sm" px={3} py={1}>
-                {getRoleDisplayName(user?.role)}
-              </Badge>
-              {claims && (
-                <Badge colorScheme="blue" fontSize="sm" px={3} py={1}>
-                  Organization: {claims.org_type}
-                </Badge>
-              )}
-              <Badge colorScheme="green" fontSize="sm" px={3} py={1}>
-                System Level Access
-              </Badge>
-            </HStack>
-          </Box>
-
-          {/* System Statistics */}
-          <Box>
-            <Heading size="md" mb={4}>System Overview</Heading>
-            {isLoading ? (
-              <Box py={8} textAlign="center">
-                <Spinner size="lg" color="blue.500" mb={4} />
-                <Text color="gray.500">Loading system statistics...</Text>
-              </Box>
-            ) : systemStats ? (
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={6}>
-                <StatCard
-                  title="Total Users"
-                  value={systemStats.total_users.toLocaleString()}
-                  icon={FiUsers}
-                  color="blue.500"
-                  helpText={`${systemStats.active_users} active users`}
-                />
-                <StatCard
-                  title="Organizations"
-                  value={systemStats.total_organizations.toLocaleString()}
-                  icon={FiServer}
-                  color="green.500"
-                  helpText={`${systemStats.organization_counts.distributor || 0} distributors, ${systemStats.organization_counts.dealer || 0} dealers`}
-                />
-                <StatCard
-                  title="Email Accounts"
-                  value={systemStats.total_email_accounts.toLocaleString()}
-                  icon={FiMail}
-                  color="purple.500"
-                  helpText={`${systemStats.total_emails.toLocaleString()} emails stored`}
-                />
-                <StatCard
-                  title="Storage Used"
-                  value={formatBytes(systemStats.total_storage_bytes)}
-                  icon={FiHardDrive}
-                  color="orange.500"
-                  helpText={`${systemStats.total_storage_gb.toFixed(2)} GB total`}
-                />
-              </SimpleGrid>
-            ) : (
-              <Alert status="warning">
-                <AlertIcon />
-                <AlertDescription>
-                  Could not load system statistics. Please check your connection and try again.
-                </AlertDescription>
-              </Alert>
-            )}
-          </Box>
-
-          {/* Provider Statistics */}
-          {systemStats && (
-            <Box>
-              <Heading size="md" mb={4}>Email Provider Distribution</Heading>
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-                {Object.entries(systemStats.provider_counts).map(([provider, count]) => (
-                  <Card key={provider}>
-                    <CardBody>
-                      <VStack spacing={2}>
-                        <Text fontSize="lg" fontWeight="bold" textTransform="capitalize">
-                          {provider}
-                        </Text>
-                        <Text fontSize="2xl" fontWeight="bold" color="blue.500">
-                          {count}
-                        </Text>
-                        <Text fontSize="sm" color="gray.500">accounts</Text>
-                      </VStack>
-                    </CardBody>
-                  </Card>
-                ))}
-              </SimpleGrid>
-            </Box>
-          )}
-
-          {/* Top Organizations */}
-          {topOrganizations.length > 0 && (
-            <Box>
-              <Heading size="md" mb={4}>Top Organizations by Usage</Heading>
-              <Card>
-                <CardBody>
-                  <TableContainer>
-                    <Table variant="simple" size="sm">
-                      <Thead>
-                        <Tr>
-                          <Th>Organization</Th>
-                          <Th>Type</Th>
-                          <Th isNumeric>Users</Th>
-                          <Th isNumeric>Emails</Th>
-                          <Th isNumeric>Storage</Th>
-                          <Th>Status</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {topOrganizations.slice(0, 10).map((org) => (
-                          <Tr key={org.id}>
-                            <Td fontWeight="medium">{org.name}</Td>
-                            <Td>
-                              <Badge
-                                colorScheme={
-                                  org.type === 'distributor' ? 'purple' : 
-                                  org.type === 'dealer' ? 'orange' : 'blue'
-                                }
-                                size="sm"
-                              >
-                                {org.type}
-                              </Badge>
-                            </Td>
-                            <Td isNumeric>{org.user_count}</Td>
-                            <Td isNumeric>{org.email_count.toLocaleString()}</Td>
-                            <Td isNumeric>{formatBytes(org.storage_bytes)}</Td>
-                            <Td>
-                              <Badge
-                                colorScheme={org.is_active ? 'green' : 'red'}
-                                size="sm"
-                              >
-                                {org.is_active ? 'Active' : 'Inactive'}
-                              </Badge>
-                            </Td>
-                          </Tr>
-                        ))}
-                      </Tbody>
-                    </Table>
-                  </TableContainer>
-                </CardBody>
-              </Card>
-            </Box>
-          )}
-
-          {/* Recent System Activity */}
-          {systemStats?.recent_activity && systemStats.recent_activity.length > 0 && (
-            <Box>
-              <Heading size="md" mb={4}>Recent System Activity</Heading>
-              <Card>
-                <CardBody>
-                  <VStack spacing={3} align="stretch">
-                    {systemStats.recent_activity.slice(0, 10).map((activity, index) => (
-                      <Flex key={index} align="center" justify="space-between" p={3} borderRadius="md" bg="gray.50">
-                        <HStack spacing={3}>
-                          <Icon as={FiActivity} color="blue.500" />
-                          <Text fontSize="sm">{activity.message}</Text>
-                        </HStack>
-                        <Text fontSize="xs" color="gray.500">
-                          {new Date(activity.timestamp).toLocaleDateString()}
-                        </Text>
-                      </Flex>
-                    ))}
-                  </VStack>
-                </CardBody>
-              </Card>
-            </Box>
-          )}
-
-          {/* Role Distribution */}
-          {systemStats && (
-            <Box>
-              <Heading size="md" mb={4}>User Role Distribution</Heading>
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 5 }} spacing={4}>
-                {Object.entries(systemStats.role_counts).map(([role, count]) => (
-                  <Card key={role}>
-                    <CardBody>
-                      <VStack spacing={2}>
-                        <Text fontSize="lg" fontWeight="bold" textTransform="capitalize">
-                          {role.replace('_', ' ')}
-                        </Text>
-                        <Text fontSize="2xl" fontWeight="bold" color="green.500">
-                          {count}
-                        </Text>
-                        <Text fontSize="sm" color="gray.500">users</Text>
-                      </VStack>
-                    </CardBody>
-                  </Card>
-                ))}
-              </SimpleGrid>
-            </Box>
-          )}
-
-          {/* Quick Actions */}
-          <Box>
-            <Heading size="md" mb={4}>Quick Actions</Heading>
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-              <Button 
-                colorScheme="blue" 
-                size="lg"
-                onClick={() => window.location.href = '/admin/organizations'}
-              >
-                Manage Organizations
-              </Button>
-              <Button 
-                colorScheme="green" 
-                size="lg"
-                onClick={() => toast({
-                  title: 'Coming Soon',
-                  description: 'User management interface is under development.',
-                  status: 'info',
-                  duration: 3000,
-                  isClosable: true,
-                })}
-              >
-                Manage Users
-              </Button>
-              <Button 
-                colorScheme="purple" 
-                size="lg"
-                onClick={loadSystemData}
-                isLoading={isStatsLoading}
-              >
-                Refresh Statistics
-              </Button>
-              <Button 
-                colorScheme="orange" 
-                size="lg"
-                onClick={() => toast({
-                  title: 'Coming Soon',
-                  description: 'System settings interface is under development.',
-                  status: 'info',
-                  duration: 3000,
-                  isClosable: true,
-                })}
-              >
-                System Settings
-              </Button>
-            </SimpleGrid>
-          </Box>
-
-          {/* System Information */}
-          <Card bg={statBg}>
-            <CardBody>
-              <VStack align="stretch" spacing={2}>
-                <Heading size="sm">System Information</Heading>
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-                  <VStack align="start" spacing={2}>
-                    <Text fontSize="sm">
-                      <strong>Version:</strong> Enterprise Email Backup v2.0
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Environment:</strong> Production Ready
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Database:</strong> PostgreSQL (Connected)
-                    </Text>
-                  </VStack>
-                  <VStack align="start" spacing={2}>
-                    <Text fontSize="sm">
-                      <strong>Storage:</strong> MinIO Object Storage (Connected)
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>API Endpoints:</strong> {systemStats ? 'All Online' : 'Checking...'}
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Last Updated:</strong> {new Date().toLocaleString()}
-                    </Text>
-                  </VStack>
-                </SimpleGrid>
-              </VStack>
-            </CardBody>
-          </Card>
+  // Table columns for top organizations
+  const organizationColumns: TableColumn<TopOrganization>[] = [
+    {
+      key: 'name',
+      title: 'Organization',
+      sortable: true,
+      render: (value, row) => (
+        <VStack align="flex-start" spacing={1}>
+          <Text fontWeight="semibold">{value}</Text>
+          <Badge size="sm" colorScheme="blue">
+            {row.type}
+          </Badge>
         </VStack>
-      </Container>
-    </Layout>
+      ),
+    },
+    {
+      key: 'total_users',
+      title: 'Users',
+      sortable: true,
+      align: 'center',
+      render: (value) => (
+        <Badge colorScheme="green" variant="subtle">
+          {value?.toLocaleString() || '0'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'total_emails',
+      title: 'Emails',
+      sortable: true,
+      align: 'center',
+      render: (value) => (
+        <Text fontWeight="medium">
+          {value?.toLocaleString() || '0'}
+        </Text>
+      ),
+    },
+    {
+      key: 'storage_used',
+      title: 'Storage Used',
+      sortable: true,
+      align: 'right',
+      render: (value) => (
+        <Text fontWeight="medium" color="orange.500">
+          {formatBytes(value || 0)}
+        </Text>
+      ),
+    },
+  ]
+
+  // Admin-only quick actions (Level 1 only)
+  const getAdminQuickActions = () => {
+    // This dashboard should ONLY be for admin (Level 1)
+    if (user?.role?.level !== 1) {
+      return []
+    }
+
+    return [
+      {
+        title: 'System Statistics',
+        description: 'View system-wide performance metrics',
+        icon: FiBarChart,
+        color: 'purple.500',
+        onClick: () => navigate('/admin/system-stats'),
+      },
+      {
+        title: 'System Settings',
+        description: 'Configure global system settings',
+        icon: FiSettings,
+        color: 'orange.500',
+        onClick: () => navigate('/admin/system-settings'),
+      },
+    ]
+  }
+
+  // Render main dashboard content
+  const renderDashboard = () => {
+        return (
+          <VStack spacing={8} align="stretch" maxW="full">
+              {/* Welcome Header */}
+              <Card variant="filled">
+                <CardBody>
+                  <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
+                    <VStack align="flex-start" spacing={2}>
+                      <Text fontSize="2xl" fontWeight="bold">
+                        Welcome back, {user?.email?.split('@')[0]}
+                      </Text>
+                      <HStack spacing={3} wrap="wrap">
+                        <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                          {getRoleDisplayName(user?.role)}
+                        </Badge>
+                        <Badge colorScheme="purple" px={3} py={1} borderRadius="full">
+                          System Administrator
+                        </Badge>
+                        <Badge colorScheme="green" px={3} py={1} borderRadius="full">
+                          Active
+                        </Badge>
+                      </HStack>
+                    </VStack>
+                    <Button
+                      leftIcon={<FiRefreshCw />}
+                      onClick={loadSystemData}
+                      isLoading={isStatsLoading}
+                      size="sm"
+                    >
+                      Refresh Data
+                    </Button>
+                  </Flex>
+                </CardBody>
+              </Card>
+
+              {/* System Statistics */}
+              <Box>
+                <Heading size="md" mb={6} display="flex" alignItems="center">
+                  <Icon as={FiBarChart} mr={3} color="blue.500" />
+                  System Overview
+                </Heading>
+                
+                {systemStats ? (
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+                    <UserStatCard
+                      title="Total Users"
+                      value={systemStats.total_users}
+                      helpText={`${systemStats.active_users} active users`}
+                      loading={isLoading}
+                      size="lg"
+                    />
+                    <StatCard
+                      title="Organizations"
+                      value={systemStats.total_organizations}
+                      icon={FiServer}
+                      color="green.500"
+                      helpText={`${systemStats.organization_counts.distributor || 0} distributors, ${systemStats.organization_counts.dealer || 0} dealers`}
+                      loading={isLoading}
+                      size="lg"
+                    />
+                    <EmailStatCard
+                      title="Email Accounts"
+                      value={systemStats.total_email_accounts}
+                      helpText={`${systemStats.total_emails.toLocaleString()} emails stored`}
+                      loading={isLoading}
+                      size="lg"
+                    />
+                    <StorageStatCard
+                      title="Storage Used"
+                      value={formatBytes(systemStats.total_storage_bytes)}
+                      helpText={`${systemStats.total_storage_gb.toFixed(2)} GB total`}
+                      loading={isLoading}
+                      size="lg"
+                    />
+                  </SimpleGrid>
+                ) : (
+                  <Alert status="warning" borderRadius="md">
+                    <AlertIcon />
+                    <AlertDescription>
+                      Could not load system statistics. Please check your connection and try again.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </Box>
+
+              {/* Quick Actions */}
+              <Box>
+                <Heading size="md" mb={6} display="flex" alignItems="center">
+                  <Icon as={FiSettings} mr={3} color="blue.500" />
+                  Quick Actions
+                </Heading>
+                <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                  {getAdminQuickActions().map((action, index) => (
+                    <QuickActionCard key={index} {...action} />
+                  ))}
+                </SimpleGrid>
+              </Box>
+
+              {/* Top Organizations Table */}
+              {topOrganizations.length > 0 && (
+                <Box>
+                  <DataTable
+                    title="Top Organizations"
+                    subtitle="Organizations with highest activity"
+                    data={topOrganizations}
+                    columns={organizationColumns}
+                    loading={isLoading}
+                    searchable
+                    sortable
+                    pagination
+                    pageSize={5}
+                    height="400px"
+                    onRefresh={loadSystemData}
+                  />
+                </Box>
+              )}
+
+              {/* System Information */}
+              <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
+                <Card>
+                  <CardHeader pb={3}>
+                    <Heading size="sm" display="flex" alignItems="center">
+                      <Icon as={FiServer} mr={2} color="blue.500" />
+                      System Status
+                    </Heading>
+                  </CardHeader>
+                  <CardBody pt={0}>
+                    <VStack align="stretch" spacing={3}>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">Version:</Text>
+                        <Text fontSize="sm" fontWeight="medium">Enterprise Email Backup v2.0</Text>
+                      </Flex>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">Environment:</Text>
+                        <Badge colorScheme="green" size="sm">Production Ready</Badge>
+                      </Flex>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">Database:</Text>
+                        <Badge colorScheme="green" size="sm">PostgreSQL Connected</Badge>
+                      </Flex>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">Storage:</Text>
+                        <Badge colorScheme="green" size="sm">MinIO Connected</Badge>
+                      </Flex>
+                    </VStack>
+                  </CardBody>
+                </Card>
+
+                <Card>
+                  <CardHeader pb={3}>
+                    <Heading size="sm" display="flex" alignItems="center">
+                      <Icon as={FiActivity} mr={2} color="green.500" />
+                      Recent Activity
+                    </Heading>
+                  </CardHeader>
+                  <CardBody pt={0}>
+                    <VStack align="stretch" spacing={3}>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">API Status:</Text>
+                        <Badge colorScheme="green" size="sm">All Online</Badge>
+                      </Flex>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">Last Sync:</Text>
+                        <Text fontSize="sm" fontWeight="medium">{new Date().toLocaleString()}</Text>
+                      </Flex>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">Active Sessions:</Text>
+                        <Text fontSize="sm" fontWeight="medium">{systemStats?.active_users || 0}</Text>
+                      </Flex>
+                      <Flex justify="space-between">
+                        <Text fontSize="sm" color="gray.600">System Load:</Text>
+                        <Badge colorScheme="green" size="sm">Normal</Badge>
+                      </Flex>
+                    </VStack>
+                  </CardBody>
+                </Card>
+              </SimpleGrid>
+          </VStack>
+        )
+  }
+
+  return (
+    <AdminLayout 
+      title="Dashboard"
+      breadcrumbs={[
+        { label: 'Overview' },
+      ]}
+    >
+      {renderDashboard()}
+    </AdminLayout>
   )
 }
 

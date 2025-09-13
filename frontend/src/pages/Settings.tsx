@@ -90,7 +90,7 @@ export const Settings = () => {
   const subtleTextColor = useColorModeValue('gray.500', 'gray.400')
 
   return (
-    <Layout>
+    <Layout title="Settings">
       <Box bg="white" minH="100vh">
         <Container maxW="4xl" py={0} px={0}>
           <VStack align="stretch" spacing={0}>

@@ -92,8 +92,21 @@ func RequirePermission(permission string) gin.HandlerFunc {
 			return
 		}
 
-		// Admin has all permissions
+		// SECURITY FIX: Admin does NOT have email permissions 
 		if userClaims.RoleName == "admin" {
+			// Admin cannot access email-related permissions
+			if permission == "emails.read" || permission == "emails.manage" || 
+			   permission == "accounts.create" || permission == "accounts.read" || 
+			   permission == "accounts.update" || permission == "accounts.delete" {
+				c.JSON(http.StatusForbidden, gin.H{
+					"error": "Admins cannot access email functionality",
+					"required_permission": permission,
+					"user_role": userClaims.RoleName,
+				})
+				c.Abort()
+				return
+			}
+			// Admin has all other permissions
 			c.Next()
 			return
 		}
@@ -163,25 +176,30 @@ func checkPermissionByRole(roleName, permission string) bool {
 			"distributors.create", "distributors.read", "distributors.update", "distributors.delete",
 			"dealers.create", "dealers.read", "dealers.update", "dealers.delete",
 			"clients.create", "clients.read", "clients.update", "clients.delete",
-			"emails.read", "emails.manage", "reports.view", "settings.manage",
+			"reports.view", "settings.manage",
+			// SECURITY FIX: Removed "emails.read", "emails.manage" - Admin should NOT have email access
 		},
 		"distributor": {
 			"dealers.create", "dealers.read", "dealers.update", "dealers.delete",
 			"clients.create", "clients.read", "clients.update", "clients.delete",
 			"users.create", "users.read", "users.update", "users.delete",
 			"organizations.read", "organizations.update", "reports.view",
+			// NO email permissions - correct
 		},
 		"dealer": {
 			"clients.create", "clients.read", "clients.update", "clients.delete",
 			"users.create", "users.read", "users.update", "users.delete",
 			"organizations.read", "organizations.update", "reports.view",
+			// NO email permissions - correct
 		},
 		"client": {
 			"users.create", "users.read", "users.update", "users.delete",
-			"emails.read", "emails.manage", "organizations.read", "organizations.update", "reports.view",
+			"organizations.read", "organizations.update", "reports.view",
+			// SECURITY FIX: Removed "emails.read", "emails.manage" - Client should NOT have email access
 		},
 		"end_user": {
 			"emails.read", "emails.manage", "accounts.create", "accounts.read", "accounts.update", "accounts.delete",
+			// Only end_user should have email access - correct
 		},
 	}
 

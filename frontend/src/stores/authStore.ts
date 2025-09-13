@@ -38,10 +38,20 @@ export const useAuthStore = create<AuthState>()(
           const response = await authAPI.login(email, password)
           const { token, user } = response.data
           
+          // SECURITY DEBUG: Log login data
+          console.log('🔐 Login response data:', {
+            token: token ? 'present' : 'missing',
+            user,
+            userRole: user?.role?.name,
+            userEmail: user?.email
+          })
+          
           setAuthToken(token)
           
           // Get JWT claims for role/organization info
           const claims = getCurrentUserClaims()
+          
+          console.log('🔐 JWT Claims after login:', claims)
           
           set({
             user,
@@ -50,6 +60,13 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: true,
             isLoading: false,
             error: null,
+          })
+          
+          // SECURITY DEBUG: Log final auth state
+          console.log('🔐 Final auth state after login:', {
+            user,
+            isAuthenticated: true,
+            userRole: user?.role?.name
           })
           
           return true

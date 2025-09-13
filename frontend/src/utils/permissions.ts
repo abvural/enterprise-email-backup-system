@@ -46,9 +46,10 @@ export const canManageUsers = (userRole: UserRole): boolean => {
 
 /**
  * Check if a user role can access email functionality
+ * SECURITY: Only end_user role should have email access
  */
 export const canAccessEmails = (userRole: UserRole): boolean => {
-  return ['distributor', 'dealer', 'client', 'end_user'].includes(userRole)
+  return userRole === 'end_user'
 }
 
 /**
@@ -136,9 +137,10 @@ export const getDefaultDashboardPath = (userRole: UserRole): string => {
 
 /**
  * Check if a user role should see email functionality in the menu
+ * SECURITY: Only end_user role should see email menus
  */
 export const shouldShowEmailMenu = (userRole: UserRole): boolean => {
-  return canAccessEmails(userRole)
+  return canAccessEmails(userRole) // Now returns true only for end_user
 }
 
 /**

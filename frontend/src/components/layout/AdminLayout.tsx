@@ -46,24 +46,8 @@ import {
   FiGrid,
   FiTrendingUp,
   FiDatabase,
-  FiInbox,
-  FiSend,
-  FiArchive,
-  FiTrash,
-  FiActivity,
 } from 'react-icons/fi'
-import { 
-  MdDashboard, 
-  MdBusiness, 
-  MdStorefront, 
-  MdGroup, 
-  MdPersonAdd, 
-  MdPeople, 
-  MdAccountTree,
-  MdAdd,
-  MdEmail,
-  MdInbox
-} from 'react-icons/md'
+import { FaBuilding } from 'react-icons/fa'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { getRoleDisplayName, canAccess } from '../../utils/roleUtils'
@@ -80,15 +64,15 @@ interface NavItem {
   requiredPermissions?: string[]
 }
 
-// Layout props
-interface LayoutProps {
+// Admin layout props
+interface AdminLayoutProps {
   children: React.ReactNode
   title?: string
   breadcrumbs?: Array<{ label: string; href?: string }>
 }
 
-// Unified layout with Office 365 design system
-export const Layout: React.FC<LayoutProps> = ({ 
+// Office 365 style admin layout
+export const AdminLayout: React.FC<AdminLayoutProps> = ({ 
   children, 
   title,
   breadcrumbs = []
@@ -111,79 +95,155 @@ export const Layout: React.FC<LayoutProps> = ({
   // Navigation items based on user role
   const navigationItems: NavItem[] = useMemo(() => {
     const items: NavItem[] = []
-    const userRole = user?.role?.name
-    const userLevel = user?.role?.level
 
-    // IMPORTANT: This Layout is ONLY for end_user role
-    // Admin/Organization roles should use AdminLayout instead
-    
-    // Email Management (End User ONLY)
-    if (userRole === 'end_user') {
+
+
+    // Dashboard (all admin roles)
+    items.push({
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: FiHome,
+      path: '/admin/dashboard',
+    })
+
+    // Organization Management (Admin only - visible at top level)
+    if (user?.role?.level === 1) {
       items.push({
-        id: 'dashboard',
-        label: 'Dashboard',
-        icon: FiHome,
-        path: '/dashboard',
+        id: 'organizations-main',
+        label: 'Organizasyon Yönetimi',
+        icon: FaBuilding,
+        path: '/admin/organizations',
+        badge: 'Yeni',
       })
+    }
+
+    // System Management (Admin only - Level 1)
+    if (user?.role?.level === 1) {
       items.push({
-        id: 'email-management',
-        label: 'Email Management',
-        icon: FiMail,
+        id: 'system',
+        label: 'System Management',
+        icon: FiGrid,
         children: [
           {
-            id: 'emails',
-            label: 'Emails',
-            icon: MdEmail,
-            path: '/emails',
+            id: 'all-organizations',
+            label: 'All Organizations',
+            icon: FaBuilding,
+            path: '/admin/organizations',
+            requiredRole: 1,
           },
           {
-            id: 'accounts',
-            label: 'Email Accounts',
-            icon: FiUser,
-            path: '/accounts',
-          },
-        ],
-      })
-      items.push({
-        id: 'folders',
-        label: 'Folders',
-        icon: FiInbox,
-        children: [
-          {
-            id: 'inbox',
-            label: 'Inbox',
-            icon: MdInbox,
-            path: '/emails?folder=INBOX',
+            id: 'system-stats',
+            label: 'System Statistics',
+            icon: FiBarChart,
+            path: '/admin/system-stats',
+            requiredRole: 1,
           },
           {
-            id: 'sent',
-            label: 'Sent Items',
-            icon: FiSend,
-            path: '/emails?folder=Sent Items',
-          },
-          {
-            id: 'archive',
-            label: 'Archive',
-            icon: FiArchive,
-            path: '/emails?folder=Archive',
-          },
-          {
-            id: 'trash',
-            label: 'Deleted Items',
-            icon: FiTrash,
-            path: '/emails?folder=Deleted Items',
+            id: 'system-settings',
+            label: 'System Settings',
+            icon: FiSettings,
+            path: '/admin/system-settings',
+            requiredRole: 1,
           },
         ],
       })
     }
 
-    // Settings menu for all roles
-    items.push({
-      id: 'settings',
-      label: 'Settings',
-      icon: FiSettings,
-      path: '/settings',
-    })
+    // Network Management (Distributor only - Level 2)
+    if (user?.role?.level === 2) {
+      items.push({
+        id: 'network',
+        label: 'Network Management',
+        icon: FiTrendingUp,
+        children: [
+          {
+            id: 'dealers',
+            label: 'Manage Dealers',
+            icon: FiUsers,
+            path: '/admin/dealers',
+            requiredRole: 2,
+          },
+          {
+            id: 'clients',
+            label: 'Manage Clients',
+            icon: FiServer,
+            path: '/admin/clients',
+            requiredRole: 2,
+          },
+          {
+            id: 'network-stats',
+            label: 'Network Statistics',
+            icon: FiBarChart,
+            path: '/admin/network-stats',
+            requiredRole: 2,
+          },
+        ],
+      })
+    }
+
+    // Client Management (Dealer only - Level 3)
+    if (user?.role?.level === 3) {
+      items.push({
+        id: 'client-management',
+        label: 'Client Management',
+        icon: FiServer,
+        children: [
+          {
+            id: 'my-clients',
+            label: 'My Clients',
+            icon: FiServer,
+            path: '/admin/my-clients',
+            requiredRole: 3,
+          },
+          {
+            id: 'client-users',
+            label: 'Client Users',
+            icon: FiUsers,
+            path: '/admin/client-users',
+            requiredRole: 3,
+          },
+          {
+            id: 'client-stats',
+            label: 'Client Statistics',
+            icon: FiBarChart,
+            path: '/admin/client-stats',
+            requiredRole: 3,
+          },
+        ],
+      })
+    }
+
+    // User Management (Client only - Level 4)
+    if (user?.role?.level === 4) {
+      items.push({
+        id: 'user-management',
+        label: 'User Management',
+        icon: FiUsers,
+        children: [
+          {
+            id: 'end-users',
+            label: 'End Users',
+            icon: FiUsers,
+            path: '/admin/end-users',
+            requiredRole: 4,
+          },
+          {
+            id: 'user-permissions',
+            label: 'User Permissions',
+            icon: FiShield,
+            path: '/admin/user-permissions',
+            requiredRole: 4,
+          },
+          {
+            id: 'usage-stats',
+            label: 'Usage Statistics',
+            icon: FiBarChart,
+            path: '/admin/usage-stats',
+            requiredRole: 4,
+          },
+        ],
+      })
+    }
 
     return items
   }, [user])
@@ -437,7 +497,7 @@ export const Layout: React.FC<LayoutProps> = ({
                     fontSize="sm"
                   >
                     <BreadcrumbItem>
-                      <BreadcrumbLink onClick={() => navigate('/dashboard')}>
+                      <BreadcrumbLink onClick={() => navigate('/admin/dashboard')}>
                         Dashboard
                       </BreadcrumbLink>
                     </BreadcrumbItem>
@@ -501,4 +561,4 @@ export const Layout: React.FC<LayoutProps> = ({
   )
 }
 
-export default Layout
+export default AdminLayout
