@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dashboard Storage</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .info { color: blue; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Storage Statistics Test</h1>
+    
+    <div class="section">
+        <h2>Test Results</h2>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Test the formatBytes function
+        function formatBytes(bytes, decimals = 1) {
+            if (bytes === 0) return '0 B'
+            
+            const k = 1024
+            const dm = decimals < 0 ? 0 : decimals
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+            
+            const i = Math.floor(Math.log(bytes) / Math.log(k))
+            
+            return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
+        }
+
+        // Test mock data generation
+        function generateMockStats(accountCount) {
+            return {
+                total_emails: accountCount * 150,
+                total_size: accountCount * 524288000, // ~500MB per account
+                content_size: accountCount * 419430400, // ~400MB content
+                attachment_size: accountCount * 104857600, // ~100MB attachments
+                attachment_count: accountCount * 25,
+                total_accounts: accountCount,
+                last_calculated: 'mock-data-' + new Date().toISOString(),
+                formatted: {
+                    total_size: formatBytes(accountCount * 524288000),
+                    content_size: formatBytes(accountCount * 419430400),
+                    attachment_size: formatBytes(accountCount * 104857600)
+                }
+            }
+        }
+
+        // Run tests
+        function runTests() {
+            const results = document.getElementById('results')
+            let output = '<h3>Byte Formatting Tests:</h3>'
+            
+            // Test byte formatting
+            const testCases = [
+                { input: 0, expected: '0 B' },
+                { input: 1024, expected: '1.0 KB' },
+                { input: 1048576, expected: '1.0 MB' },
+                { input: 1073741824, expected: '1.0 GB' },
+                { input: 524288000, expected: '500.0 MB' },
+                { input: 419430400, expected: '400.0 MB' },
+                { input: 104857600, expected: '100.0 MB' }
+            ]
+
+            testCases.forEach(test => {
+                const result = formatBytes(test.input)
+                const isCorrect = result === test.expected
+                output += `<div class="${isCorrect ? 'success' : 'error'}">
+                    formatBytes(${test.input}) = "${result}" ${isCorrect ? '✓' : '✗ Expected: ' + test.expected}
+                </div>`
+            })
+
+            output += '<h3>Mock Data Generation Test:</h3>'
+            
+            // Test mock data for different account counts
+            const accountCounts = [0, 1, 2, 3, 5]
+            accountCounts.forEach(count => {
+                const mockStats = generateMockStats(count)
+                output += `<div class="info">
+                    <strong>${count} accounts:</strong><br>
+                    Total Emails: ${mockStats.total_emails.toLocaleString()}<br>
+                    Total Size: ${mockStats.formatted.total_size}<br>
+                    Content Size: ${mockStats.formatted.content_size}<br>
+                    Attachments: ${mockStats.attachment_count.toLocaleString()} (${mockStats.formatted.attachment_size})<br>
+                    Is Mock: ${mockStats.last_calculated.includes('mock-data') ? 'Yes' : 'No'} ✓
+                </div><br>`
+            })
+
+            output += '<h3>Frontend URLs:</h3>'
+            output += `<div class="info">
+                Frontend: <a href="http://localhost:5180" target="_blank">http://localhost:5180</a><br>
+                Backend: <a href="http://localhost:8081/health" target="_blank">http://localhost:8081/health</a>
+            </div>`
+
+            results.innerHTML = output
+        }
+
+        // Run tests on page load
+        runTests()
+    </script>
+</body>
+</html>

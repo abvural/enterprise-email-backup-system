@@ -37,6 +37,11 @@ func main() {
 		log.Fatal("MinIO connection failed:", err)
 	}
 
+	// Start background jobs
+	backgroundJobService := services.NewBackgroundJobService(database.DB, storage.MinioClient)
+	backgroundJobService.StartAllJobs()
+	log.Println("✅ Background jobs started successfully")
+
 	// Initialize router
 	router := gin.Default()
 
@@ -231,6 +236,15 @@ func main() {
 		// Email management
 		protected.GET("/accounts/:id/emails", emailHandler.GetEmails)
 		protected.GET("/emails/:id", emailHandler.GetEmail)
+
+		// Storage statistics
+		storageHandler := handlers.NewStorageHandler()
+		protected.GET("/storage/total", storageHandler.GetTotalStorageStats)
+		protected.GET("/storage/accounts", storageHandler.GetAccountsWithStorageStats)
+		protected.GET("/storage/account/:accountId", storageHandler.GetAccountStorageStats)
+		protected.GET("/storage/account/:accountId/folders", storageHandler.GetFolderStorageStats)
+		protected.POST("/storage/account/:accountId/recalculate", storageHandler.RecalculateStorageStats)
+		protected.POST("/storage/recalculate-all", storageHandler.RecalculateAllStorageStats)
 	}
 
 	log.Printf("Starting Email Backup MVP server on port %s", cfg.Server.Port)

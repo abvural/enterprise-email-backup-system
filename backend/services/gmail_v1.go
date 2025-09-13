@@ -388,15 +388,30 @@ func (gs *GmailServiceV1) processMessageImpl(ctx context.Context, msg *imap.Mess
 		return fmt.Errorf("failed to save email to MinIO: %v", err)
 	}
 
+	// Calculate email sizes
+	emailSize := int64(len(emailJSON))
+	contentSize := int64(len(emailData.Subject) + len(emailData.Body))
+	attachmentCount := len(emailData.Attachments)
+	attachmentSize := int64(0)
+	
+	// Calculate attachment size
+	for _, attachment := range emailData.Attachments {
+		attachmentSize += attachment.Size
+	}
+
 	// Save index to PostgreSQL
 	emailIndex := database.EmailIndex{
-		ID:        uuid.New(),
-		AccountID: accountID,
-		MessageID: messageID,
-		Subject:   emailData.Subject,
-		Date:      emailData.Date,
-		Folder:    folder,
-		MinioPath: minioPath,
+		ID:              uuid.New(),
+		AccountID:       accountID,
+		MessageID:       messageID,
+		Subject:         emailData.Subject,
+		Date:            emailData.Date,
+		Folder:          folder,
+		MinioPath:       minioPath,
+		EmailSize:       emailSize,
+		ContentSize:     contentSize,
+		AttachmentCount: attachmentCount,
+		AttachmentSize:  attachmentSize,
 	}
 
 	// Extract sender info

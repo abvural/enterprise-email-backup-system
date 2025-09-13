@@ -2,10 +2,20 @@ import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from 'axio
 
 // API Base URL - in production, this should come from environment variables
 const API_BASE_URL = import.meta.env.PROD ? '' : 'http://localhost:8081'
+const STORAGE_API_URL = import.meta.env.PROD ? '' : 'http://localhost:8082'
 
 // Create axios instance
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Create storage API client
+export const storageApiClient = axios.create({
+  baseURL: STORAGE_API_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -43,6 +53,34 @@ apiClient.interceptors.request.use(
 
 // Response interceptor to handle auth errors
 apiClient.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response
+  },
+  (error) => {
+    if (error.response?.status === 401) {
+      // Token expired or invalid - clear auth and redirect to login
+      removeAuthToken()
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
+// Add interceptors for storage API client
+storageApiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = getAuthToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+storageApiClient.interceptors.response.use(
   (response: AxiosResponse) => {
     return response
   },
@@ -139,6 +177,42 @@ export interface ApiResponse<T> {
   error?: string
 }
 
+// Storage Statistics Types
+export interface StorageStats {
+  total_emails: number
+  total_size: number
+  content_size: number
+  attachment_size: number
+  attachment_count: number
+  last_calculated?: string
+  formatted: {
+    total_size: string
+    content_size: string
+    attachment_size: string
+  }
+}
+
+export interface TotalStorageStats extends StorageStats {
+  total_accounts: number
+}
+
+export interface AccountStorageStats extends StorageStats {
+  account_id: string
+}
+
+export interface FolderStorageStats extends StorageStats {
+  folder_name: string
+}
+
+export interface AccountWithStorageStats {
+  id: string
+  email: string
+  provider: string
+  is_active: boolean
+  last_sync_date?: string
+  storage: StorageStats
+}
+
 // Auth API
 export const authAPI = {
   register: (email: string, password: string): Promise<AxiosResponse<AuthResponse>> =>
@@ -194,6 +268,46 @@ export const healthAPI = {
     database: string
     minio: string
   }>> => apiClient.get('/health'),
+}
+
+// Storage Statistics API
+export const storageAPI = {
+  // Get total storage statistics for the user
+  getTotalStats: (): Promise<AxiosResponse<{ success: boolean; data: TotalStorageStats }>> =>
+    storageApiClient.get('/api/storage/total'),
+
+  // Get all accounts with storage statistics
+  getAccountsWithStats: (): Promise<AxiosResponse<{ success: boolean; data: AccountWithStorageStats[] }>> =>
+    storageApiClient.get('/api/storage/accounts'),
+
+  // Get storage statistics for a specific account
+  getAccountStats: (accountId: string): Promise<AxiosResponse<{ success: boolean; data: AccountStorageStats }>> =>
+    storageApiClient.get(`/api/storage/account/${accountId}`),
+
+  // Get folder storage statistics for an account
+  getFolderStats: (accountId: string): Promise<AxiosResponse<{ success: boolean; data: FolderStorageStats[] }>> =>
+    storageApiClient.get(`/api/storage/account/${accountId}/folders`),
+
+  // Recalculate storage statistics for a specific account
+  recalculateAccountStats: (accountId: string): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
+    storageApiClient.post(`/api/storage/account/${accountId}/recalculate`),
+
+  // Recalculate storage statistics for all user accounts
+  recalculateAllStats: (): Promise<AxiosResponse<{ success: boolean; message: string }>> =>
+    storageApiClient.post('/api/storage/recalculate-all'),
+}
+
+// Utility function to format bytes
+export const formatBytes = (bytes: number, decimals: number = 1): string => {
+  if (bytes === 0) return '0 B'
+  
+  const k = 1024
+  const dm = decimals < 0 ? 0 : decimals
+  const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
+  
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`
 }
 
 // Export token utilities for use in stores

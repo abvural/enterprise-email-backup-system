@@ -435,17 +435,32 @@ func (es *ExchangeService) syncWithProgress(accountID uuid.UUID, progress *model
 			continue
 		}
 
+		// Calculate email sizes
+		emailSize := int64(len(emailJSON))
+		contentSize := int64(len(msgItem.Subject) + len(emailData.Body))
+		attachmentCount := len(emailData.Attachments)
+		attachmentSize := int64(0)
+		
+		// Calculate attachment size
+		for _, attachment := range emailData.Attachments {
+			attachmentSize += attachment.Size
+		}
+
 		// Save index to PostgreSQL
 		emailIndex := database.EmailIndex{
-			ID:          uuid.New(),
-			AccountID:   accountID,
-			MessageID:   messageID,
-			Subject:     msgItem.Subject,
-			Date:        emailDate,
-			Folder:      "Inbox",
-			MinioPath:   minioPath,
-			SenderEmail: senderEmail,
-			SenderName:  senderName,
+			ID:              uuid.New(),
+			AccountID:       accountID,
+			MessageID:       messageID,
+			Subject:         msgItem.Subject,
+			Date:            emailDate,
+			Folder:          "Inbox",
+			MinioPath:       minioPath,
+			SenderEmail:     senderEmail,
+			SenderName:      senderName,
+			EmailSize:       emailSize,
+			ContentSize:     contentSize,
+			AttachmentCount: attachmentCount,
+			AttachmentSize:  attachmentSize,
 		}
 
 		err = database.DB.Create(&emailIndex).Error
@@ -889,17 +904,32 @@ func (es *ExchangeService) fallbackSyncImpl(accountID uuid.UUID, progress *model
 			continue
 		}
 
+		// Calculate email sizes
+		emailSize := int64(len(emailJSON))
+		contentSize := int64(len(testEmail.subject) + len(emailData.Body))
+		attachmentCount := len(emailData.Attachments)
+		attachmentSize := int64(0)
+		
+		// Calculate attachment size
+		for _, attachment := range emailData.Attachments {
+			attachmentSize += attachment.Size
+		}
+
 		// Save index to PostgreSQL
 		emailIndex := database.EmailIndex{
-			ID:          uuid.New(),
-			AccountID:   accountID,
-			MessageID:   messageID,
-			Subject:     testEmail.subject,
-			Date:        emailDate,
-			Folder:      "Inbox",
-			MinioPath:   minioPath,
-			SenderEmail: testEmail.from,
-			SenderName:  testEmail.fromName,
+			ID:              uuid.New(),
+			AccountID:       accountID,
+			MessageID:       messageID,
+			Subject:         testEmail.subject,
+			Date:            emailDate,
+			Folder:          "Inbox",
+			MinioPath:       minioPath,
+			SenderEmail:     testEmail.from,
+			SenderName:      testEmail.fromName,
+			EmailSize:       emailSize,
+			ContentSize:     contentSize,
+			AttachmentCount: attachmentCount,
+			AttachmentSize:  attachmentSize,
 		}
 
 		err = database.DB.Create(&emailIndex).Error

@@ -218,11 +218,7 @@ func (s *IMAPGeneralService) connect() (*imapclient.Client, error) {
 	}
 
 	// Create IMAP client
-	client, err := imapclient.New(conn, nil)
-	if err != nil {
-		conn.Close()
-		return nil, fmt.Errorf("failed to create IMAP client: %v", err)
-	}
+	client := imapclient.New(conn, nil)
 
 	// Upgrade to TLS if needed
 	if s.UseSTARTTLS && !s.UseSSL {
@@ -270,11 +266,13 @@ func (s *IMAPGeneralService) authenticateOAuth2(client *imapclient.Client) error
 		oauthToken.AccessToken = token.AccessToken
 	}
 
-	// Create XOAUTH2 string
-	authString := fmt.Sprintf("user=%s\001auth=Bearer %s\001\001", s.Username, oauthToken.AccessToken)
-
-	// Use XOAUTH2 authentication
-	return client.Authenticate("XOAUTH2", authString).Wait()
+	// Create XOAUTH2 authentication
+	authCmd := client.Authenticate(sasl.NewOAuthBearerClient(&sasl.OAuthBearerOptions{
+		Username: s.Username,
+		Token:    oauthToken.AccessToken,
+	}))
+	
+	return authCmd.Wait()
 }
 
 func (s *IMAPGeneralService) SyncEmailsWithProgress(accountID uuid.UUID) error {
@@ -288,37 +286,43 @@ func (s *IMAPGeneralService) SyncEmails(accountID uuid.UUID) error {
 
 func (s *IMAPGeneralService) syncEmailsImpl(accountID uuid.UUID, progress *models.SyncProgress) error {
 	if progress != nil {
-		progress.UpdateStatus("connecting", fmt.Sprintf("Connecting to %s...", s.Host), 0, 0, 0)
+		progress.Status = "connecting"
+		progress.Message = fmt.Sprintf("Connecting to %s...", s.Host)
+		ProgressManager.UpdateProgress(progress)
 	}
 
 	client, err := s.connect()
 	if err != nil {
 		if progress != nil {
-			progress.UpdateStatus("error", fmt.Sprintf("Connection failed: %v", err), 0, 0, 0)
+			progress.Status = "error"
+			progress.Message = fmt.Sprintf("Connection failed: %v", err)
+			ProgressManager.UpdateProgress(progress)
 		}
 		return err
 	}
 	defer client.Close()
 
 	// Get last sync date for incremental sync
-	var lastSyncDate *time.Time
-	err = database.DB.QueryRow(`
-		SELECT last_sync_date FROM email_accounts 
-		WHERE id = $1
-	`, accountID).Scan(&lastSyncDate)
+	var account models.EmailAccount
+	err = database.DB.Where("id = ?", accountID).First(&account).Error
 	if err != nil {
-		log.Printf("Error fetching last sync date: %v", err)
+		log.Printf("Error fetching account: %v", err)
 	}
+	lastSyncDate := account.LastSyncDate
 
 	if progress != nil {
-		progress.UpdateStatus("fetching", "Selecting INBOX...", 0, 0, 0)
+		progress.Status = "fetching"
+		progress.Message = "Selecting INBOX..."
+		ProgressManager.UpdateProgress(progress)
 	}
 
 	// Select INBOX
 	_, err = client.Select("INBOX", nil).Wait()
 	if err != nil {
 		if progress != nil {
-			progress.UpdateStatus("error", fmt.Sprintf("Failed to select INBOX: %v", err), 0, 0, 0)
+			progress.Status = "error"
+			progress.Message = fmt.Sprintf("Failed to select INBOX: %v", err)
+			ProgressManager.UpdateProgress(progress)
 		}
 		return fmt.Errorf("failed to select INBOX: %v", err)
 	}
@@ -435,7 +439,7 @@ func (s *IMAPGeneralService) processBatch(client *imapclient.Client, accountID u
 	return nil
 }
 
-func (s *IMAPGeneralService) processMessage(client *imapclient.Client, accountID uuid.UUID, msg *imapv2.FetchMessageData) error {
+func (s *IMAPGeneralService) processMessage(client *imapclient.Client, accountID uuid.UUID, msg *imap.Message) error {
 	messageUID := fmt.Sprintf("%d", msg.UID)
 	
 	// Check if email already exists
@@ -589,6 +593,17 @@ func (s *IMAPGeneralService) processMessage(client *imapclient.Client, accountID
 		return err
 	}
 
+	// Calculate email sizes
+	emailSize := int64(len(emailJSON))
+	contentSize := int64(len(emailData.Subject) + len(emailData.Body))
+	attachmentCount := len(emailData.Attachments)
+	attachmentSize := int64(0)
+	
+	// Calculate attachment size
+	for _, attachment := range emailData.Attachments {
+		attachmentSize += attachment.Size
+	}
+
 	// Store in database
 	senderEmail := ""
 	if len(emailData.From) > 0 {
@@ -596,10 +611,10 @@ func (s *IMAPGeneralService) processMessage(client *imapclient.Client, accountID
 	}
 
 	_, err = database.DB.Exec(`
-		INSERT INTO email_index (id, account_id, message_id, subject, sender_email, date, folder, minio_path)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO email_index (id, account_id, message_id, subject, sender_email, date, folder, minio_path, email_size, content_size, attachment_count, attachment_size)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (message_id, account_id) DO NOTHING
-	`, uuid.New(), accountID, messageUID, emailData.Subject, senderEmail, emailData.Date, emailData.Folder, minioPath)
+	`, uuid.New(), accountID, messageUID, emailData.Subject, senderEmail, emailData.Date, emailData.Folder, minioPath, emailSize, contentSize, attachmentCount, attachmentSize)
 
 	return err
 }

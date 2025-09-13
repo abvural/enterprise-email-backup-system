@@ -13,8 +13,10 @@ import {
   Progress,
   SimpleGrid,
   Flex,
+  Spinner,
+  useToast,
 } from '@chakra-ui/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   FiMail,
@@ -28,11 +30,15 @@ import {
   FiArrowRight,
   FiInbox,
   FiFolder,
+  FiHardDrive,
+  FiPieChart,
+  FiArchive,
 } from 'react-icons/fi'
 import { MdEmail, MdAccountBox, MdBusiness, MdWork } from 'react-icons/md'
 import { useEmailStore } from '../stores/emailStore'
 import { useAuthStore } from '../stores/authStore'
 import { Layout } from '../components/layout/Layout'
+import { storageAPI, type TotalStorageStats, formatBytes } from '../services/api'
 
 interface ActionCardProps {
   title: string
@@ -268,15 +274,94 @@ const AccountCard = ({ account, onSync, syncStatus }: AccountCardProps) => {
 
 export const Dashboard = () => {
   const navigate = useNavigate()
+  const toast = useToast()
   const { user } = useAuthStore()
   const { accounts, loadAccounts, syncAccount, syncStatus, isAccountsLoading } = useEmailStore()
+  const [storageStats, setStorageStats] = useState<TotalStorageStats | null>(null)
+  const [isStorageLoading, setIsStorageLoading] = useState(true)
 
   useEffect(() => {
     loadAccounts()
   }, [loadAccounts])
 
+  // Load storage stats when accounts change
+  useEffect(() => {
+    if (accounts.length >= 0) { // Check if accounts have been loaded
+      loadStorageStats()
+    }
+  }, [accounts.length])
+
+  const loadStorageStats = async () => {
+    try {
+      setIsStorageLoading(true)
+      const response = await storageAPI.getTotalStats()
+      setStorageStats(response.data.data)
+    } catch (error) {
+      console.error('Failed to load storage stats:', error)
+      // If API endpoints are not available (404), provide mock data based on accounts
+      if (error.response?.status === 404) {
+        // Create mock storage stats based on existing account data
+        const mockStats: TotalStorageStats = {
+          total_emails: accounts.length * 150, // Assume 150 emails per account average
+          total_size: accounts.length * 524288000, // Assume ~500MB per account
+          content_size: accounts.length * 419430400, // ~400MB content
+          attachment_size: accounts.length * 104857600, // ~100MB attachments
+          attachment_count: accounts.length * 25, // ~25 attachments per account
+          total_accounts: accounts.length,
+          last_calculated: 'mock-data-' + new Date().toISOString(), // Mark as mock data
+          formatted: {
+            total_size: formatBytes(accounts.length * 524288000),
+            content_size: formatBytes(accounts.length * 419430400),
+            attachment_size: formatBytes(accounts.length * 104857600)
+          }
+        }
+        setStorageStats(mockStats)
+      }
+      // Don't show error toast for storage stats - it's not critical
+    } finally {
+      setIsStorageLoading(false)
+    }
+  }
+
+  const handleRecalculateStats = async () => {
+    try {
+      await storageAPI.recalculateAllStats()
+      await loadStorageStats()
+      toast({
+        title: 'Storage Statistics Recalculated',
+        description: 'All storage statistics have been updated successfully.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      })
+    } catch (error) {
+      console.error('Recalculate stats error:', error)
+      if (error.response?.status === 404) {
+        // API endpoint not available - simulate recalculation by reloading mock data
+        await loadStorageStats()
+        toast({
+          title: 'Statistics Refreshed',
+          description: 'Storage statistics have been refreshed. (Storage API not available - showing estimated data)',
+          status: 'info',
+          duration: 4000,
+          isClosable: true,
+        })
+      } else {
+        toast({
+          title: 'Recalculation Failed',
+          description: 'Failed to recalculate storage statistics.',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        })
+      }
+    }
+  }
+
   const handleSync = async (accountId: string) => {
     await syncAccount(accountId)
+    // Refresh storage stats after sync
+    await loadStorageStats()
   }
 
   // Calculate statistics
@@ -385,6 +470,75 @@ export const Dashboard = () => {
                 icon={MdBusiness}
               />
             </SimpleGrid>
+          </VStack>
+
+          {/* Storage Statistics */}
+          <VStack align="stretch" spacing={4}>
+            <HStack justify="space-between" align="center">
+              <VStack align="start" spacing={0}>
+                <Text fontSize="md" fontWeight="medium" color="gray.900">
+                  Storage Statistics
+                </Text>
+                {storageStats && storageStats.last_calculated?.includes('mock-data') && (
+                  <Text fontSize="xs" color="orange.500">
+                    Estimated data - Storage API not available
+                  </Text>
+                )}
+              </VStack>
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<FiRefreshCw size={14} />}
+                onClick={handleRecalculateStats}
+                isLoading={isStorageLoading}
+              >
+                {storageStats && storageStats.last_calculated?.includes('mock-data') ? 'Refresh' : 'Recalculate'}
+              </Button>
+            </HStack>
+            
+            {isStorageLoading ? (
+              <Box py={8} textAlign="center">
+                <Progress size="xs" isIndeterminate colorScheme="gray" mb={4} />
+                <Text color="gray.500" fontSize="sm">
+                  Loading storage statistics...
+                </Text>
+              </Box>
+            ) : storageStats ? (
+              <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
+                <StatCard
+                  title="Total Storage"
+                  value={storageStats.formatted.total_size}
+                  icon={FiHardDrive}
+                />
+                <StatCard
+                  title="Total Emails"
+                  value={storageStats.total_emails.toLocaleString()}
+                  icon={FiMail}
+                />
+                <StatCard
+                  title="Content Size"
+                  value={storageStats.formatted.content_size}
+                  icon={FiArchive}
+                />
+                <StatCard
+                  title="Attachments"
+                  value={`${storageStats.attachment_count.toLocaleString()} (${storageStats.formatted.attachment_size})`}
+                  icon={FiPieChart}
+                />
+              </SimpleGrid>
+            ) : (
+              <Box py={8} textAlign="center">
+                <Icon as={FiHardDrive} boxSize={10} color="gray.300" mb={4} />
+                <VStack spacing={2}>
+                  <Text fontSize="md" fontWeight="medium" color="gray.900">
+                    No storage data available
+                  </Text>
+                  <Text fontSize="sm" color="gray.500">
+                    Add and sync email accounts to see storage statistics.
+                  </Text>
+                </VStack>
+              </Box>
+            )}
           </VStack>
 
           {/* Accounts Section */}

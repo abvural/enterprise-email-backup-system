@@ -16,6 +16,7 @@ import (
 	graphmodels "github.com/microsoftgraph/msgraph-sdk-go/models"
 	"github.com/microsoftgraph/msgraph-sdk-go/users"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
@@ -78,7 +79,7 @@ func NewOffice365ServiceWithToken(tenantID, clientID, clientSecret, userEmail st
 }
 
 // Implement azcore.TokenCredential interface
-func (cred *Office365CustomCredential) GetToken(ctx context.Context, options azcore.TokenRequestOptions) (azcore.AccessToken, error) {
+func (cred *Office365CustomCredential) GetToken(ctx context.Context, options policy.TokenRequestOptions) (azcore.AccessToken, error) {
 	// Check if token is expired
 	if time.Now().After(cred.expiresAt.Add(-5 * time.Minute)) {
 		// Refresh the token
@@ -409,6 +410,17 @@ func (o *Office365Service) processMessage(accountID uuid.UUID, message graphmode
 		return err
 	}
 
+	// Calculate email sizes
+	emailSize := int64(len(emailJSON))
+	contentSize := int64(len(emailData.Subject) + len(emailData.Body))
+	attachmentCount := len(emailData.Attachments)
+	attachmentSize := int64(0)
+	
+	// Calculate attachment size
+	for _, attachment := range emailData.Attachments {
+		attachmentSize += attachment.Size
+	}
+
 	// Store in database
 	senderEmail := ""
 	if len(emailData.From) > 0 {
@@ -416,10 +428,10 @@ func (o *Office365Service) processMessage(accountID uuid.UUID, message graphmode
 	}
 
 	_, err = database.DB.Exec(`
-		INSERT INTO email_index (id, account_id, message_id, subject, sender_email, date, folder, minio_path)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO email_index (id, account_id, message_id, subject, sender_email, date, folder, minio_path, email_size, content_size, attachment_count, attachment_size)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (message_id, account_id) DO NOTHING
-	`, uuid.New(), accountID, messageID, emailData.Subject, senderEmail, emailData.Date, emailData.Folder, minioPath)
+	`, uuid.New(), accountID, messageID, emailData.Subject, senderEmail, emailData.Date, emailData.Folder, minioPath, emailSize, contentSize, attachmentCount, attachmentSize)
 
 	return err
 }

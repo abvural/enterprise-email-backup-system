@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -63,6 +64,13 @@ type EmailIndex struct {
 	Date        time.Time `json:"date"`
 	Folder      string    `gorm:"default:'INBOX'" json:"folder"`
 	MinioPath   string    `json:"minio_path"`
+	
+	// Storage size fields
+	EmailSize       int64 `gorm:"default:0;not null" json:"email_size"`       // Total size (content + attachments)
+	ContentSize     int64 `gorm:"default:0;not null" json:"content_size"`     // Content only size
+	AttachmentCount int   `gorm:"default:0;not null" json:"attachment_count"` // Number of attachments
+	AttachmentSize  int64 `gorm:"default:0;not null" json:"attachment_size"`  // Total attachment size
+	
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 
@@ -125,4 +133,89 @@ func (ot *OAuthToken) IsExpired() bool {
 // IsExpiringSoon checks if the token will expire within the next 5 minutes
 func (ot *OAuthToken) IsExpiringSoon() bool {
 	return time.Now().Add(5 * time.Minute).After(ot.ExpiresAt)
+}
+
+// AccountStorageStats stores storage statistics per email account
+type AccountStorageStats struct {
+	ID               uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	AccountID        uuid.UUID `gorm:"type:uuid;not null;uniqueIndex" json:"account_id"`
+	TotalEmails      int       `gorm:"default:0;not null" json:"total_emails"`
+	TotalSize        int64     `gorm:"default:0;not null" json:"total_size"`       // Total size in bytes
+	ContentSize      int64     `gorm:"default:0;not null" json:"content_size"`     // Content only size in bytes
+	AttachmentSize   int64     `gorm:"default:0;not null" json:"attachment_size"`  // Total attachments size in bytes
+	AttachmentCount  int       `gorm:"default:0;not null" json:"attachment_count"` // Total number of attachments
+	LastCalculatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"last_calculated_at"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+
+	// Relationship
+	Account EmailAccount `gorm:"foreignKey:AccountID" json:"account,omitempty"`
+}
+
+// FolderStorageStats stores storage statistics per folder within each account
+type FolderStorageStats struct {
+	ID               uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	AccountID        uuid.UUID `gorm:"type:uuid;not null" json:"account_id"`
+	FolderName       string    `gorm:"not null;size:100" json:"folder_name"`
+	TotalEmails      int       `gorm:"default:0;not null" json:"total_emails"`
+	TotalSize        int64     `gorm:"default:0;not null" json:"total_size"`       // Total size in bytes
+	ContentSize      int64     `gorm:"default:0;not null" json:"content_size"`     // Content only size in bytes
+	AttachmentSize   int64     `gorm:"default:0;not null" json:"attachment_size"`  // Total attachments size in bytes
+	AttachmentCount  int       `gorm:"default:0;not null" json:"attachment_count"` // Total number of attachments
+	LastCalculatedAt time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"last_calculated_at"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+
+	// Relationship
+	Account EmailAccount `gorm:"foreignKey:AccountID" json:"account,omitempty"`
+}
+
+// BeforeCreate hook to set UUID for AccountStorageStats
+func (ass *AccountStorageStats) BeforeCreate(tx *gorm.DB) error {
+	if ass.ID == uuid.Nil {
+		ass.ID = uuid.New()
+	}
+	return nil
+}
+
+// BeforeCreate hook to set UUID for FolderStorageStats
+func (fss *FolderStorageStats) BeforeCreate(tx *gorm.DB) error {
+	if fss.ID == uuid.Nil {
+		fss.ID = uuid.New()
+	}
+	return nil
+}
+
+// GetTotalSizeFormatted returns total size in human readable format
+func (ass *AccountStorageStats) GetTotalSizeFormatted() string {
+	return formatBytes(ass.TotalSize)
+}
+
+// GetContentSizeFormatted returns content size in human readable format
+func (ass *AccountStorageStats) GetContentSizeFormatted() string {
+	return formatBytes(ass.ContentSize)
+}
+
+// GetAttachmentSizeFormatted returns attachment size in human readable format
+func (ass *AccountStorageStats) GetAttachmentSizeFormatted() string {
+	return formatBytes(ass.AttachmentSize)
+}
+
+// GetTotalSizeFormatted returns total size in human readable format
+func (fss *FolderStorageStats) GetTotalSizeFormatted() string {
+	return formatBytes(fss.TotalSize)
+}
+
+// formatBytes converts bytes to human readable format
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
