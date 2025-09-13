@@ -9,17 +9,30 @@ import (
 )
 
 type Claims struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
+	UserID         string `json:"user_id"`
+	Email          string `json:"email"`
+	RoleName       string `json:"role_name"`
+	RoleLevel      int    `json:"role_level"`
+	OrganizationID string `json:"organization_id"`
+	OrgType        string `json:"org_type"`
 	jwt.RegisteredClaims
 }
 
 func GenerateToken(userID, email, secret string) (string, error) {
+	// This is the legacy function for backward compatibility
+	return GenerateTokenWithRole(userID, email, "end_user", 5, "", "client", secret)
+}
+
+func GenerateTokenWithRole(userID, email, roleName string, roleLevel int, organizationID, orgType, secret string) (string, error) {
 	expirationTime := time.Now().Add(7 * 24 * time.Hour) // 7 days
 	
 	claims := &Claims{
-		UserID: userID,
-		Email:  email,
+		UserID:         userID,
+		Email:          email,
+		RoleName:       roleName,
+		RoleLevel:      roleLevel,
+		OrganizationID: organizationID,
+		OrgType:        orgType,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),

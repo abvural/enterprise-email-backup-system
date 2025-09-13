@@ -31,7 +31,23 @@ import {
   FiSend,
   FiArchive,
   FiTrash,
+  FiUsers,
+  FiGrid,
+  FiPlus,
+  FiUserPlus,
 } from 'react-icons/fi'
+import { 
+  MdDashboard, 
+  MdBusiness, 
+  MdStorefront, 
+  MdGroup, 
+  MdPersonAdd, 
+  MdPeople, 
+  MdAccountTree,
+  MdAdd,
+  MdEmail,
+  MdInbox
+} from 'react-icons/md'
 import { useAuthStore } from '../../stores/authStore'
 
 interface LayoutProps {
@@ -56,27 +72,145 @@ const LinearSidebar = () => {
   // Update active item based on current location
   React.useEffect(() => {
     const path = location.pathname
-    if (path === '/dashboard') setActiveItem('dashboard')
+    
+    // Dashboard routes
+    if (path === '/dashboard' || path === '/admin/dashboard' || path === '/distributor/dashboard' || path === '/dealer/dashboard' || path === '/client/dashboard') {
+      setActiveItem('dashboard')
+    }
+    // Admin routes
+    else if (path.includes('/admin/organizations')) setActiveItem('organizations')
+    else if (path.includes('/admin/create-organization')) setActiveItem('create-organization')
+    // Distributor routes
+    else if (path.includes('/distributor/network')) setActiveItem('network')
+    else if (path.includes('/distributor/add-dealer')) setActiveItem('add-dealer')
+    else if (path.includes('/distributor/add-client')) setActiveItem('add-client')
+    else if (path.includes('/distributor/statistics')) setActiveItem('network-statistics')
+    // Dealer routes
+    else if (path.includes('/dealer/clients')) setActiveItem('clients')
+    else if (path.includes('/dealer/add-client')) setActiveItem('add-client')
+    // Client routes
+    else if (path.includes('/client/users')) setActiveItem('users')
+    else if (path.includes('/client/add-user')) setActiveItem('add-user')
+    // Common routes
     else if (path.includes('/accounts')) setActiveItem('accounts')
-    else if (path.includes('/emails')) setActiveItem('emails')
+    else if (path.includes('/emails')) {
+      const urlParams = new URLSearchParams(location.search)
+      const folder = urlParams.get('folder')
+      if (folder === 'INBOX') setActiveItem('inbox')
+      else if (folder === 'Sent Items') setActiveItem('sent')
+      else if (folder === 'Archive') setActiveItem('archive')
+      else if (folder === 'Deleted Items') setActiveItem('trash')
+      else setActiveItem('emails')
+    }
     else if (path.includes('/settings')) setActiveItem('settings')
-  }, [location.pathname])
+    else if (path.includes('/email-showcase')) setActiveItem('showcase')
+  }, [location.pathname, location.search])
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: FiHome, path: '/dashboard' },
-    { id: 'emails', label: 'Emails', icon: FiMail, path: '/emails' },
-    { id: 'accounts', label: 'Email Accounts', icon: FiUser, path: '/accounts' },
-    { type: 'separator' },
-    { type: 'group', label: 'FOLDERS' },
-    { id: 'inbox', label: 'Inbox', icon: FiInbox, path: '/emails?folder=INBOX' },
-    { id: 'sent', label: 'Sent Items', icon: FiSend, path: '/emails?folder=Sent Items' },
-    { id: 'archive', label: 'Archive', icon: FiArchive, path: '/emails?folder=Archive' },
-    { id: 'trash', label: 'Deleted Items', icon: FiTrash, path: '/emails?folder=Deleted Items' },
-    { type: 'separator' },
-    { type: 'group', label: 'MANAGEMENT' },
-    { id: 'settings', label: 'Settings', icon: FiSettings, path: '/settings' },
-    { id: 'showcase', label: 'Email Showcase', icon: FiMail, path: '/email-showcase' },
-  ]
+  // Get user role from auth store - STRICT role checking
+  const userRole = user?.role?.name || 'end_user'
+  const isAdmin = userRole === 'admin'
+  const isDistributor = userRole === 'distributor'
+  const isDealer = userRole === 'dealer'
+  const isClient = userRole === 'client'
+  const isEndUser = userRole === 'end_user'
+
+  // Role-based menu items - CRITICAL: Only end users should have email access
+  const getAllMenuItems = () => {
+    // ADMIN: System management ONLY - NO email functionality
+    if (userRole === 'admin') {  // Direct role check
+      return [
+        { id: 'admin-dashboard', label: 'Dashboard', icon: MdDashboard, path: '/admin/dashboard' },
+        { type: 'separator' },
+        { type: 'group', label: 'SYSTEM ADMINISTRATION' },
+        { id: 'organizations', label: 'Organizations', icon: MdBusiness, path: '/admin/organizations' },
+        { id: 'create-organization', label: 'Create Organization', icon: MdAdd, path: '/admin/create-organization' },
+        { type: 'separator' },
+        { type: 'group', label: 'SETTINGS' },
+        { id: 'settings', label: 'System Settings', icon: FiSettings, path: '/settings' },
+      ]
+    }
+
+    // DISTRIBUTOR: Network management ONLY - NO email functionality
+    if (userRole === 'distributor') {  // Direct role check
+      return [
+        { id: 'dashboard', label: 'Dashboard', icon: MdDashboard, path: '/distributor/dashboard' },
+        { type: 'separator' },
+        { type: 'group', label: 'NETWORK MANAGEMENT' },
+        { id: 'network', label: 'My Network', icon: MdAccountTree, path: '/distributor/network' },
+        { id: 'add-dealer', label: 'Add Dealer', icon: MdStorefront, path: '/distributor/add-dealer' },
+        { id: 'add-client', label: 'Add Client', icon: MdBusiness, path: '/distributor/add-client' },
+        { id: 'network-statistics', label: 'Network Statistics', icon: FiGrid, path: '/distributor/statistics' },
+        { type: 'separator' },
+        { type: 'group', label: 'REPORTS' },
+        { id: 'reports', label: 'Network Reports', icon: FiActivity, path: '/distributor/reports' },
+        { type: 'separator' },
+        { type: 'group', label: 'SETTINGS' },
+        { id: 'settings', label: 'Settings', icon: FiSettings, path: '/settings' },
+      ]
+    }
+
+    // DEALER: Client management ONLY - NO email functionality  
+    if (userRole === 'dealer') {  // Direct role check
+      return [
+        { id: 'dashboard', label: 'Dashboard', icon: MdDashboard, path: '/dealer/dashboard' },
+        { type: 'separator' },
+        { type: 'group', label: 'CLIENT MANAGEMENT' },
+        { id: 'clients', label: 'My Clients', icon: MdGroup, path: '/dealer/clients' },
+        { id: 'add-client', label: 'Add Client', icon: MdPersonAdd, path: '/dealer/add-client' },
+        { type: 'separator' },
+        { type: 'group', label: 'REPORTS' },
+        { id: 'reports', label: 'Client Reports', icon: FiActivity, path: '/dealer/reports' },
+        { type: 'separator' },
+        { type: 'group', label: 'SETTINGS' },
+        { id: 'settings', label: 'Settings', icon: FiSettings, path: '/settings' },
+      ]
+    }
+
+    // CLIENT: User management ONLY - NO email functionality
+    if (userRole === 'client') {  // Direct role check
+      return [
+        { id: 'dashboard', label: 'Dashboard', icon: MdDashboard, path: '/client/dashboard' },
+        { type: 'separator' },
+        { type: 'group', label: 'USER MANAGEMENT' },
+        { id: 'users', label: 'User Management', icon: MdPeople, path: '/client/users' },
+        { id: 'add-user', label: 'Add User', icon: MdPersonAdd, path: '/client/add-user' },
+        { type: 'separator' },
+        { type: 'group', label: 'REPORTS' },
+        { id: 'reports', label: 'User Reports', icon: FiActivity, path: '/client/reports' },
+        { type: 'separator' },
+        { type: 'group', label: 'SETTINGS' },
+        { id: 'settings', label: 'Settings', icon: FiSettings, path: '/settings' },
+      ]
+    }
+
+    // END USER: ONLY role with email functionality
+    // This is the DEFAULT - only end_user role gets email access
+    if (userRole === 'end_user') {
+      return [
+      { id: 'dashboard', label: 'Dashboard', icon: MdDashboard, path: '/dashboard' },
+      { type: 'separator' },
+      { type: 'group', label: 'EMAIL MANAGEMENT' },
+      { id: 'emails', label: 'Emails', icon: MdEmail, path: '/emails' },
+      { id: 'accounts', label: 'Email Accounts', icon: FiUser, path: '/accounts' },
+      { type: 'separator' },
+      { type: 'group', label: 'FOLDERS' },
+      { id: 'inbox', label: 'Inbox', icon: MdInbox, path: '/emails?folder=INBOX' },
+      { id: 'sent', label: 'Sent Items', icon: FiSend, path: '/emails?folder=Sent Items' },
+      { id: 'archive', label: 'Archive', icon: FiArchive, path: '/emails?folder=Archive' },
+      { id: 'trash', label: 'Deleted Items', icon: FiTrash, path: '/emails?folder=Deleted Items' },
+      { type: 'separator' },
+      { type: 'group', label: 'SETTINGS' },
+      { id: 'settings', label: 'Settings', icon: FiSettings, path: '/settings' },
+      { id: 'showcase', label: 'Email Showcase', icon: FiMail, path: '/email-showcase' }
+    ]
+    }
+
+    // Fallback - no menu items for unknown roles
+    console.warn('Unknown user role:', userRole)
+    return []
+  }
+
+  const menuItems = getAllMenuItems()
 
   const handleLogout = () => {
     logout()

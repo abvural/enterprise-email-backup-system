@@ -56,11 +56,20 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Create user
+	// Get default end_user role
+	var endUserRole database.Role
+	if err := database.DB.Where("name = ?", "end_user").First(&endUserRole).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Default role not found"})
+		return
+	}
+
+	// Create user with default role (no organization assignment for registration)
 	user := database.User{
 		ID:           uuid.New(),
 		Email:        req.Email,
 		PasswordHash: hashedPassword,
+		RoleID:       &endUserRole.ID,
+		// PrimaryOrgID will be nil - user needs to be assigned to organization by admin
 	}
 
 	if err := database.DB.Create(&user).Error; err != nil {
@@ -68,16 +77,35 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	// Generate token
-	token, err := auth.GenerateToken(user.ID.String(), user.Email, h.JWTSecret)
+	// Generate token with default values
+	token, err := auth.GenerateTokenWithRole(
+		user.ID.String(),
+		user.Email,
+		"end_user",
+		5,
+		"", // No organization
+		"client",
+		h.JWTSecret,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	c.JSON(http.StatusCreated, AuthResponse{
-		Token: token,
-		User:  user,
+	// Load role for response
+	database.DB.Preload("Role").First(&user, user.ID)
+
+	userResponse := map[string]interface{}{
+		"id":         user.ID,
+		"email":      user.Email,
+		"role":       user.Role,
+		"primary_org": nil, // No organization assigned
+		"created_at": user.CreatedAt,
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"token": token,
+		"user":  userResponse,
 	})
 }
 
@@ -88,9 +116,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Find user
+	// Find user with role and organization information
 	var user database.User
-	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+	if err := database.DB.Preload("Role").Preload("PrimaryOrg").Where("email = ?", req.Email).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -101,15 +129,48 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// Generate token
-	token, err := auth.GenerateToken(user.ID.String(), user.Email, h.JWTSecret)
+	// Prepare token data - use defaults for users without organization assignment
+	var roleName string = "end_user"
+	var roleLevel int = 5
+	var organizationID string = ""
+	var orgType string = "client"
+
+	if user.Role != nil {
+		roleName = user.Role.Name
+		roleLevel = user.Role.Level
+	}
+
+	if user.PrimaryOrg != nil {
+		organizationID = user.PrimaryOrg.ID.String()
+		orgType = user.PrimaryOrg.Type
+	}
+
+	// Generate token with organization information
+	token, err := auth.GenerateTokenWithRole(
+		user.ID.String(),
+		user.Email,
+		roleName,
+		roleLevel,
+		organizationID,
+		orgType,
+		h.JWTSecret,
+	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
-	c.JSON(http.StatusOK, AuthResponse{
-		Token: token,
-		User:  user,
+	// Prepare user response
+	userResponse := map[string]interface{}{
+		"id":         user.ID,
+		"email":      user.Email,
+		"role":       user.Role,
+		"primary_org": user.PrimaryOrg,
+		"created_at": user.CreatedAt,
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": token,
+		"user":  userResponse,
 	})
 }

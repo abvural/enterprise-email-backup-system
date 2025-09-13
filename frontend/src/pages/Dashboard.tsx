@@ -280,6 +280,30 @@ export const Dashboard = () => {
   const [storageStats, setStorageStats] = useState<TotalStorageStats | null>(null)
   const [isStorageLoading, setIsStorageLoading] = useState(true)
 
+  // Redirect to role-based dashboard
+  useEffect(() => {
+    if (user?.role?.name) {
+      const roleName = user.role.name
+      switch (roleName) {
+        case 'admin':
+          navigate('/admin/dashboard', { replace: true })
+          return
+        case 'distributor':
+          navigate('/distributor/dashboard', { replace: true })
+          return
+        case 'dealer':
+          navigate('/dealer/dashboard', { replace: true })
+          return
+        case 'client':
+          navigate('/client/dashboard', { replace: true })
+          return
+        // end_user stays on regular dashboard
+        default:
+          break
+      }
+    }
+  }, [user?.role?.name, navigate])
+
   useEffect(() => {
     loadAccounts()
   }, [loadAccounts])
@@ -298,25 +322,8 @@ export const Dashboard = () => {
       setStorageStats(response.data.data)
     } catch (error) {
       console.error('Failed to load storage stats:', error)
-      // If API endpoints are not available (404), provide mock data based on accounts
-      if (error.response?.status === 404) {
-        // Create mock storage stats based on existing account data
-        const mockStats: TotalStorageStats = {
-          total_emails: accounts.length * 150, // Assume 150 emails per account average
-          total_size: accounts.length * 524288000, // Assume ~500MB per account
-          content_size: accounts.length * 419430400, // ~400MB content
-          attachment_size: accounts.length * 104857600, // ~100MB attachments
-          attachment_count: accounts.length * 25, // ~25 attachments per account
-          total_accounts: accounts.length,
-          last_calculated: 'mock-data-' + new Date().toISOString(), // Mark as mock data
-          formatted: {
-            total_size: formatBytes(accounts.length * 524288000),
-            content_size: formatBytes(accounts.length * 419430400),
-            attachment_size: formatBytes(accounts.length * 104857600)
-          }
-        }
-        setStorageStats(mockStats)
-      }
+      // No mock data - if API is not available, show empty state
+      console.error('Storage API not available:', error)
       // Don't show error toast for storage stats - it's not critical
     } finally {
       setIsStorageLoading(false)
@@ -336,25 +343,13 @@ export const Dashboard = () => {
       })
     } catch (error) {
       console.error('Recalculate stats error:', error)
-      if (error.response?.status === 404) {
-        // API endpoint not available - simulate recalculation by reloading mock data
-        await loadStorageStats()
-        toast({
-          title: 'Statistics Refreshed',
-          description: 'Storage statistics have been refreshed. (Storage API not available - showing estimated data)',
-          status: 'info',
-          duration: 4000,
-          isClosable: true,
-        })
-      } else {
-        toast({
-          title: 'Recalculation Failed',
-          description: 'Failed to recalculate storage statistics.',
-          status: 'error',
-          duration: 3000,
-          isClosable: true,
-        })
-      }
+      toast({
+        title: 'Recalculation Failed',
+        description: 'Storage API is not available. Please check if storage service is running.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      })
     }
   }
 
@@ -479,11 +474,6 @@ export const Dashboard = () => {
                 <Text fontSize="md" fontWeight="medium" color="gray.900">
                   Storage Statistics
                 </Text>
-                {storageStats && storageStats.last_calculated?.includes('mock-data') && (
-                  <Text fontSize="xs" color="orange.500">
-                    Estimated data - Storage API not available
-                  </Text>
-                )}
               </VStack>
               <Button
                 variant="ghost"
@@ -492,7 +482,7 @@ export const Dashboard = () => {
                 onClick={handleRecalculateStats}
                 isLoading={isStorageLoading}
               >
-                {storageStats && storageStats.last_calculated?.includes('mock-data') ? 'Refresh' : 'Recalculate'}
+Recalculate
               </Button>
             </HStack>
             

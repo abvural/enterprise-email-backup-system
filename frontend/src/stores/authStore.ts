@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { authAPI, setAuthToken, removeAuthToken, getAuthToken, type User } from '../services/api'
+import { getCurrentUserClaims, isTokenExpired, type JWTClaims } from '../utils/roleUtils'
 
 interface AuthState {
   user: User | null
@@ -8,6 +9,7 @@ interface AuthState {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  claims: JWTClaims | null
   
   // Actions
   login: (email: string, password: string) => Promise<boolean>
@@ -16,6 +18,7 @@ interface AuthState {
   checkAuth: () => Promise<boolean>
   clearError: () => void
   initializeAuth: () => void
+  refreshClaims: () => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -26,6 +29,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      claims: null,
 
       login: async (email: string, password: string): Promise<boolean> => {
         set({ isLoading: true, error: null })
@@ -35,9 +39,14 @@ export const useAuthStore = create<AuthState>()(
           const { token, user } = response.data
           
           setAuthToken(token)
+          
+          // Get JWT claims for role/organization info
+          const claims = getCurrentUserClaims()
+          
           set({
             user,
             token,
+            claims,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -49,6 +58,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             token: null,
+            claims: null,
             isAuthenticated: false,
             isLoading: false,
             error: errorMessage,
@@ -65,9 +75,14 @@ export const useAuthStore = create<AuthState>()(
           const { token, user } = response.data
           
           setAuthToken(token)
+          
+          // Get JWT claims for role/organization info
+          const claims = getCurrentUserClaims()
+          
           set({
             user,
             token,
+            claims,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -79,6 +94,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             token: null,
+            claims: null,
             isAuthenticated: false,
             isLoading: false,
             error: errorMessage,
@@ -92,6 +108,7 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: null,
           token: null,
+          claims: null,
           isAuthenticated: false,
           error: null,
         })
@@ -100,7 +117,21 @@ export const useAuthStore = create<AuthState>()(
       checkAuth: async (): Promise<boolean> => {
         const token = getAuthToken()
         if (!token) {
-          set({ isAuthenticated: false })
+          set({ isAuthenticated: false, claims: null })
+          return false
+        }
+
+        // Check if token is expired using JWT claims
+        const claims = getCurrentUserClaims()
+        if (!claims || isTokenExpired(claims)) {
+          removeAuthToken()
+          set({
+            user: null,
+            token: null,
+            claims: null,
+            isAuthenticated: false,
+            error: null,
+          })
           return false
         }
 
@@ -121,6 +152,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user,
             token,
+            claims,
             isAuthenticated: true,
             isLoading: false,
             error: null,
@@ -132,6 +164,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: null,
             token: null,
+            claims: null,
             isAuthenticated: false,
             isLoading: false,
             error: null,
@@ -144,10 +177,16 @@ export const useAuthStore = create<AuthState>()(
         set({ error: null })
       },
 
+      refreshClaims: () => {
+        const claims = getCurrentUserClaims()
+        set({ claims })
+      },
+
       initializeAuth: () => {
         const token = getAuthToken()
         if (token) {
-          set({ token })
+          const claims = getCurrentUserClaims()
+          set({ token, claims })
           get().checkAuth()
         }
       },

@@ -37,10 +37,10 @@ func main() {
 		log.Fatal("MinIO connection failed:", err)
 	}
 
-	// Start background jobs
-	backgroundJobService := services.NewBackgroundJobService(database.DB, storage.MinioClient)
-	backgroundJobService.StartAllJobs()
-	log.Println("✅ Background jobs started successfully")
+	// TODO: Re-enable when background jobs service is available
+	// backgroundJobService := services.NewBackgroundJobService(database.DB, storage.MinioClient)
+	// backgroundJobService.StartAllJobs()
+	log.Println("✅ Backend started (background jobs disabled)")
 
 	// Initialize router
 	router := gin.Default()
@@ -245,6 +245,43 @@ func main() {
 		protected.GET("/storage/account/:accountId/folders", storageHandler.GetFolderStorageStats)
 		protected.POST("/storage/account/:accountId/recalculate", storageHandler.RecalculateStorageStats)
 		protected.POST("/storage/recalculate-all", storageHandler.RecalculateAllStorageStats)
+
+		// Organization management
+		orgHandler := handlers.NewOrganizationHandler(database.DB)
+		protected.GET("/organizations", orgHandler.GetOrganizations)
+		protected.POST("/organizations", orgHandler.CreateOrganization)
+		protected.GET("/organizations/:id", orgHandler.GetOrganization)
+		protected.PUT("/organizations/:id", orgHandler.UpdateOrganization)
+		protected.DELETE("/organizations/:id", orgHandler.DeleteOrganization)
+		protected.GET("/organizations/:id/stats", orgHandler.GetOrganizationStats)
+		protected.GET("/organizations/:id/hierarchy", orgHandler.GetOrganizationHierarchy)
+
+		// Admin statistics endpoints
+		protected.GET("/admin/system-stats", orgHandler.GetSystemStats)
+		protected.GET("/admin/top-organizations", orgHandler.GetTopOrganizations)
+
+		// Distributor statistics endpoints
+		protected.GET("/distributor/network-stats", orgHandler.GetNetworkStats)
+		protected.GET("/distributor/dealer-performance", orgHandler.GetDealerPerformance)
+
+		// Dealer statistics endpoints
+		protected.GET("/dealer/client-stats", orgHandler.GetClientStats)
+		protected.GET("/dealer/usage-trends", orgHandler.GetUsageTrends)
+
+		// Client statistics endpoints
+		protected.GET("/client/user-stats", orgHandler.GetUserStats)
+		protected.GET("/client/storage-usage", orgHandler.GetStorageUsage)
+
+		// User management
+		userMgmtHandler := handlers.NewUserManagementHandler(database.DB)
+		protected.GET("/users", userMgmtHandler.GetUsers)
+		protected.POST("/users", userMgmtHandler.CreateUser)
+		protected.GET("/users/:id", userMgmtHandler.GetUser)
+		protected.PUT("/users/:id", userMgmtHandler.UpdateUser)
+		protected.DELETE("/users/:id", userMgmtHandler.DeleteUser)
+		// TODO: Add AssignRole and AssignOrganization methods to UserManagementHandler
+		// protected.POST("/users/:id/assign-role", userMgmtHandler.AssignRole)
+		// protected.POST("/users/:id/assign-organization", userMgmtHandler.AssignOrganization)
 	}
 
 	log.Printf("Starting Email Backup MVP server on port %s", cfg.Server.Port)

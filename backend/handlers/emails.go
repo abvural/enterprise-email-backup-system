@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"emailprojectv2/auth"
 	"emailprojectv2/database"
 	"emailprojectv2/storage"
 
@@ -29,11 +30,21 @@ func (h *EmailHandler) GetEmails(c *gin.Context) {
 		return
 	}
 
-	// Check if account belongs to user
+	// CRITICAL: Only end users can view email content
+	userClaims, exists := c.Get("user")
+	if exists {
+		claims := userClaims.(*auth.Claims)
+		if claims.RoleName != "end_user" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only end users can view email content"})
+			return
+		}
+	}
+
+	// Verify account belongs to user
 	var account database.EmailAccount
 	err := database.DB.Where("id = ? AND user_id = ?", accountID, userID).First(&account).Error
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Account not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Account not found or access denied"})
 		return
 	}
 
@@ -90,6 +101,16 @@ func (h *EmailHandler) GetEmail(c *gin.Context) {
 	if userID == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User ID not found"})
 		return
+	}
+
+	// CRITICAL: Only end users can view email details
+	userClaims, exists := c.Get("user")
+	if exists {
+		claims := userClaims.(*auth.Claims)
+		if claims.RoleName != "end_user" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Only end users can view email details"})
+			return
+		}
 	}
 
 	emailID := c.Param("id")

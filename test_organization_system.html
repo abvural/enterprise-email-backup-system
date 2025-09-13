@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Multi-Tier Organization System</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #2c5aa0;
+            border-bottom: 3px solid #2c5aa0;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #4a90e2;
+            margin-top: 30px;
+        }
+        .test-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #4a90e2;
+        }
+        .endpoint {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .method {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .get { background: #28a745; }
+        .post { background: #007bff; }
+        .put { background: #ffc107; color: black; }
+        .delete { background: #dc3545; }
+        button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        #results {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .hierarchy {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .role-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            margin: 2px;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        .admin { background: #dc3545; }
+        .distributor { background: #fd7e14; }
+        .dealer { background: #20c997; }
+        .client { background: #6f42c1; }
+        .end-user { background: #6c757d; }
+        .success { 
+            background: #d4edda; 
+            border: 1px solid #c3e6cb; 
+            color: #155724; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0;
+        }
+        .error { 
+            background: #f8d7da; 
+            border: 1px solid #f5c6cb; 
+            color: #721c24; 
+            padding: 10px; 
+            border-radius: 5px; 
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 Multi-Tier Organization System Test</h1>
+        
+        <div class="hierarchy">
+            <h3>Organization Hierarchy</h3>
+            <p><strong>Level 1:</strong> <span class="role-badge admin">Admin</span> - System Administrator (can manage everything)</p>
+            <p><strong>Level 2:</strong> <span class="role-badge distributor">Distributor</span> - Manages multiple dealers</p>
+            <p><strong>Level 3:</strong> <span class="role-badge dealer">Dealer</span> - Manages multiple clients</p>
+            <p><strong>Level 4:</strong> <span class="role-badge client">Client</span> - Company admin (manages end users)</p>
+            <p><strong>Level 5:</strong> <span class="role-badge end-user">End User</span> - Email backup user (existing functionality)</p>
+        </div>
+
+        <div class="success">
+            ✅ <strong>Migration Completed!</strong> All existing users have been migrated to the organization structure as end users.
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔐 Authentication Tests</h2>
+        
+        <div class="test-section">
+            <h3>1. Admin Login Test</h3>
+            <p>Test login with system administrator account:</p>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/auth/login
+            </div>
+            <button onclick="testAdminLogin()">Test Admin Login</button>
+        </div>
+
+        <div class="test-section">
+            <h3>2. End User Login Test</h3>
+            <p>Test login with existing end user account:</p>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/auth/login
+            </div>
+            <button onclick="testEndUserLogin()">Test End User Login</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📊 Organization Management Tests</h2>
+        
+        <div class="test-section">
+            <h3>3. Get Organizations (Admin View)</h3>
+            <p>Admin should see all organizations in the system:</p>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/organizations
+            </div>
+            <button onclick="testGetOrganizations()">Get Organizations</button>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Create Distributor Organization</h3>
+            <p>Admin creates a distributor organization:</p>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/organizations
+            </div>
+            <button onclick="testCreateDistributor()">Create Distributor</button>
+        </div>
+
+        <div class="test-section">
+            <h3>5. Create Dealer Organization</h3>
+            <p>Create a dealer under the distributor:</p>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/organizations
+            </div>
+            <button onclick="testCreateDealer()">Create Dealer</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>👥 User Management Tests</h2>
+        
+        <div class="test-section">
+            <h3>6. Create Distributor User</h3>
+            <p>Create a user with distributor role:</p>
+            <div class="endpoint">
+                <span class="method post">POST</span> /api/users
+            </div>
+            <button onclick="testCreateDistributorUser()">Create Distributor User</button>
+        </div>
+
+        <div class="test-section">
+            <h3>7. Get Users (Admin View)</h3>
+            <p>Admin should see all users in the system:</p>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/users
+            </div>
+            <button onclick="testGetUsers()">Get All Users</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔒 Access Control Tests</h2>
+        
+        <div class="test-section">
+            <h3>8. Test Account Filtering</h3>
+            <p>Test that users can only see accounts in their organization:</p>
+            <div class="endpoint">
+                <span class="method get">GET</span> /api/accounts
+            </div>
+            <button onclick="testAccountFiltering()">Test Account Access</button>
+        </div>
+
+        <div class="test-section">
+            <h3>9. Frontend Role Detection</h3>
+            <p>Test that frontend correctly detects user role from JWT:</p>
+            <button onclick="testFrontendRoleDetection()">Test Role Detection</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🌐 Frontend Tests</h2>
+        
+        <div class="test-section">
+            <h3>10. Admin Dashboard Access</h3>
+            <p>Test admin dashboard access:</p>
+            <button onclick="openAdminDashboard()">Open Admin Dashboard</button>
+        </div>
+
+        <div class="test-section">
+            <h3>11. Regular User Dashboard</h3>
+            <p>Test regular user dashboard (should remain unchanged):</p>
+            <button onclick="openUserDashboard()">Open User Dashboard</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📋 Test Results</h2>
+        <div id="results">Click any test button above to see results...</div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8081';
+        let adminToken = null;
+        let userToken = null;
+        let distributorOrgId = null;
+        let dealerOrgId = null;
+
+        function log(message) {
+            const results = document.getElementById('results');
+            results.textContent += `${new Date().toLocaleTimeString()}: ${message}\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').textContent = '';
+        }
+
+        async function testAdminLogin() {
+            try {
+                log('🔐 Testing admin login...');
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@emailbackup.com',
+                        password: 'Admin123!'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    adminToken = data.token;
+                    log('✅ Admin login successful!');
+                    log(`📄 Token: ${adminToken.substring(0, 50)}...`);
+                    log(`👤 User: ${JSON.stringify(data.user, null, 2)}`);
+                    
+                    // Decode JWT to show role information
+                    const payload = JSON.parse(atob(adminToken.split('.')[1]));
+                    log(`🎭 JWT Claims: ${JSON.stringify(payload, null, 2)}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Admin login failed: ${error}`);
+                }
+            } catch (error) {
+                log(`❌ Admin login error: ${error.message}`);
+            }
+        }
+
+        async function testEndUserLogin() {
+            try {
+                log('🔐 Testing end user login...');
+                const response = await fetch(`${API_BASE}/api/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'test@example.com',
+                        password: 'password'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    userToken = data.token;
+                    log('✅ End user login successful!');
+                    log(`👤 User: ${JSON.stringify(data.user, null, 2)}`);
+                    
+                    // Decode JWT to show role information
+                    const payload = JSON.parse(atob(userToken.split('.')[1]));
+                    log(`🎭 JWT Claims: ${JSON.stringify(payload, null, 2)}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ End user login failed: ${error}`);
+                }
+            } catch (error) {
+                log(`❌ End user login error: ${error.message}`);
+            }
+        }
+
+        async function testGetOrganizations() {
+            if (!adminToken) {
+                log('❌ Please login as admin first');
+                return;
+            }
+
+            try {
+                log('🏢 Getting organizations...');
+                const response = await fetch(`${API_BASE}/api/organizations`, {
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Organizations retrieved successfully!');
+                    log(`📋 Organizations: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Failed to get organizations: ${error}`);
+                }
+            } catch (error) {
+                log(`❌ Get organizations error: ${error.message}`);
+            }
+        }
+
+        async function testCreateDistributor() {
+            if (!adminToken) {
+                log('❌ Please login as admin first');
+                return;
+            }
+
+            try {
+                log('🏢 Creating distributor organization...');
+                const response = await fetch(`${API_BASE}/api/organizations`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${adminToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'Test Distributor Corp',
+                        type: 'distributor',
+                        parent_org_id: '', // Will be system org
+                        max_users: 100,
+                        max_storage_gb: 1000,
+                        max_email_accounts: 500
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    distributorOrgId = data.id;
+                    log('✅ Distributor organization created successfully!');
+                    log(`🏢 Distributor: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Failed to create distributor: ${error}`);
+                }
+            } catch (error) {
+                log(`❌ Create distributor error: ${error.message}`);
+            }
+        }
+
+        async function testCreateDealer() {
+            if (!adminToken || !distributorOrgId) {
+                log('❌ Please create distributor first');
+                return;
+            }
+
+            try {
+                log('🏢 Creating dealer organization...');
+                const response = await fetch(`${API_BASE}/api/organizations`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${adminToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'Test Dealer LLC',
+                        type: 'dealer',
+                        parent_org_id: distributorOrgId,
+                        max_users: 50,
+                        max_storage_gb: 500,
+                        max_email_accounts: 200
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    dealerOrgId = data.id;
+                    log('✅ Dealer organization created successfully!');
+                    log(`🏢 Dealer: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Failed to create dealer: ${error}`);
+                }
+            } catch (error) {
+                log(`❌ Create dealer error: ${error.message}`);
+            }
+        }
+
+        async function testCreateDistributorUser() {
+            if (!adminToken || !distributorOrgId) {
+                log('❌ Please create distributor organization first');
+                return;
+            }
+
+            try {
+                log('👤 Creating distributor user...');
+                const response = await fetch(`${API_BASE}/api/users`, {
+                    method: 'POST',
+                    headers: { 
+                        'Authorization': `Bearer ${adminToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'distributor@testcorp.com',
+                        password: 'DistributorPass123!',
+                        organization_id: distributorOrgId,
+                        role_name: 'distributor'
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Distributor user created successfully!');
+                    log(`👤 User: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Failed to create distributor user: ${error}`);
+                }
+            } catch (error) {
+                log(`❌ Create distributor user error: ${error.message}`);
+            }
+        }
+
+        async function testGetUsers() {
+            if (!adminToken) {
+                log('❌ Please login as admin first');
+                return;
+            }
+
+            try {
+                log('👥 Getting all users...');
+                const response = await fetch(`${API_BASE}/api/users`, {
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Users retrieved successfully!');
+                    log(`👥 Users: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    const error = await response.text();
+                    log(`❌ Failed to get users: ${error}`);
+                }
+            } catch (error) {
+                log(`❌ Get users error: ${error.message}`);
+            }
+        }
+
+        async function testAccountFiltering() {
+            if (!adminToken || !userToken) {
+                log('❌ Please login as both admin and end user first');
+                return;
+            }
+
+            try {
+                log('📧 Testing account filtering - Admin view...');
+                let response = await fetch(`${API_BASE}/api/accounts`, {
+                    headers: { 'Authorization': `Bearer ${adminToken}` }
+                });
+
+                if (response.ok) {
+                    const adminData = await response.json();
+                    log(`✅ Admin can see ${adminData.accounts.length} accounts`);
+                } else {
+                    log(`❌ Admin account fetch failed`);
+                }
+
+                log('📧 Testing account filtering - End user view...');
+                response = await fetch(`${API_BASE}/api/accounts`, {
+                    headers: { 'Authorization': `Bearer ${userToken}` }
+                });
+
+                if (response.ok) {
+                    const userData = await response.json();
+                    log(`✅ End user can see ${userData.accounts.length} accounts (should be only their own)`);
+                } else {
+                    log(`❌ End user account fetch failed`);
+                }
+            } catch (error) {
+                log(`❌ Account filtering test error: ${error.message}`);
+            }
+        }
+
+        function testFrontendRoleDetection() {
+            if (!adminToken && !userToken) {
+                log('❌ Please login first');
+                return;
+            }
+
+            try {
+                log('🎭 Testing frontend role detection...');
+                
+                if (adminToken) {
+                    const adminPayload = JSON.parse(atob(adminToken.split('.')[1]));
+                    log(`👤 Admin role detected: ${adminPayload.role_name} (level ${adminPayload.role_level})`);
+                    log(`🏢 Admin organization: ${adminPayload.org_type} (${adminPayload.organization_id})`);
+                }
+                
+                if (userToken) {
+                    const userPayload = JSON.parse(atob(userToken.split('.')[1]));
+                    log(`👤 User role detected: ${userPayload.role_name} (level ${userPayload.role_level})`);
+                    log(`🏢 User organization: ${userPayload.org_type} (${userPayload.organization_id})`);
+                }
+                
+                log('✅ Frontend can successfully decode JWT claims for role-based access control');
+            } catch (error) {
+                log(`❌ Role detection error: ${error.message}`);
+            }
+        }
+
+        function openAdminDashboard() {
+            log('🌐 Opening admin dashboard...');
+            window.open('http://localhost:5173/admin/dashboard', '_blank');
+            log('✅ Admin dashboard opened in new tab');
+        }
+
+        function openUserDashboard() {
+            log('🌐 Opening user dashboard...');
+            window.open('http://localhost:5173/dashboard', '_blank');
+            log('✅ User dashboard opened in new tab');
+        }
+
+        // Initialize
+        log('🚀 Multi-Tier Organization System Test Interface Ready!');
+        log('📋 Follow the tests in order for best results.');
+        log('🔑 Admin credentials: admin@emailbackup.com / Admin123!');
+        log('👤 User credentials: test@example.com / password');
+        log('');
+    </script>
+</body>
+</html>

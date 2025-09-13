@@ -47,9 +47,12 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 
 		log.Printf("✅ Token validated for user: %s", claims.UserID)
 
-		// Set user info in context
+		// Set user info in context (backward compatible)
 		c.Set("user_id", claims.UserID)
 		c.Set("user_email", claims.Email)
+		
+		// Set full user claims for RBAC
+		c.Set("user", claims)
 		
 		c.Next()
 	}

@@ -9,11 +9,21 @@ import (
 )
 
 type User struct {
-	ID           uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
-	Email        string    `gorm:"uniqueIndex;not null" json:"email"`
-	PasswordHash string    `gorm:"not null" json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Email        string     `gorm:"uniqueIndex;not null" json:"email"`
+	PasswordHash string     `gorm:"not null" json:"-"`
+	
+	// Organization and role relationships
+	RoleID       *uuid.UUID `gorm:"type:uuid" json:"role_id"`
+	PrimaryOrgID *uuid.UUID `gorm:"type:uuid" json:"primary_org_id"`
+	
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+
+	// Relationships
+	Role         *Role                `gorm:"foreignKey:RoleID" json:"role,omitempty"`
+	PrimaryOrg   *Organization        `gorm:"foreignKey:PrimaryOrgID" json:"primary_org,omitempty"`
+	UserOrgs     []UserOrganization   `gorm:"foreignKey:UserID" json:"user_orgs,omitempty"`
 }
 
 type EmailAccount struct {
@@ -218,4 +228,221 @@ func formatBytes(bytes int64) string {
 		exp++
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// ===== ORGANIZATION MODELS =====
+
+// Role represents user roles in the system
+type Role struct {
+	ID          uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Name        string    `gorm:"uniqueIndex;size:50;not null" json:"name"`
+	DisplayName string    `gorm:"size:100;not null" json:"display_name"`
+	Permissions string    `gorm:"type:jsonb;default:'[]'" json:"permissions"` // JSON array of permissions
+	Description string    `gorm:"type:text" json:"description"`
+	Level       int       `gorm:"not null" json:"level"` // 1=admin, 2=distributor, 3=dealer, 4=client, 5=end_user
+	IsActive    bool      `gorm:"default:true" json:"is_active"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// Organization represents the hierarchical organization structure
+type Organization struct {
+	ID               uuid.UUID  `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	Name             string     `gorm:"size:255;not null" json:"name"`
+	Type             string     `gorm:"size:50;not null;check:type IN ('system','distributor','dealer','client')" json:"type"`
+	ParentOrgID      *uuid.UUID `gorm:"type:uuid" json:"parent_org_id"`
+	CreatedBy        *uuid.UUID `gorm:"type:uuid" json:"created_by"`
+	
+	// Settings and limits
+	Settings         string `gorm:"type:jsonb;default:'{}'" json:"settings"`
+	MaxUsers         *int   `json:"max_users"`
+	MaxStorageGB     *int   `json:"max_storage_gb"`
+	MaxEmailAccounts *int   `json:"max_email_accounts"`
+	
+	IsActive  bool      `gorm:"default:true" json:"is_active"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+
+	// Relationships
+	ParentOrg      *Organization      `gorm:"foreignKey:ParentOrgID" json:"parent_org,omitempty"`
+	ChildOrgs      []Organization     `gorm:"foreignKey:ParentOrgID" json:"child_orgs,omitempty"`
+	Creator        *User              `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
+	UserOrgs       []UserOrganization `gorm:"foreignKey:OrganizationID" json:"user_orgs,omitempty"`
+}
+
+// UserOrganization represents the many-to-many relationship between users and organizations
+type UserOrganization struct {
+	ID             uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	UserID         uuid.UUID `gorm:"type:uuid;not null" json:"user_id"`
+	OrganizationID uuid.UUID `gorm:"type:uuid;not null" json:"organization_id"`
+	RoleID         uuid.UUID `gorm:"type:uuid;not null" json:"role_id"`
+	IsPrimary      bool      `gorm:"default:false" json:"is_primary"`
+	JoinedAt       time.Time `gorm:"default:CURRENT_TIMESTAMP" json:"joined_at"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+
+	// Relationships
+	User         User         `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Organization Organization `gorm:"foreignKey:OrganizationID" json:"organization,omitempty"`
+	Role         Role         `gorm:"foreignKey:RoleID" json:"role,omitempty"`
+}
+
+// OrganizationSettings represents detailed settings for organizations
+type OrganizationSettings struct {
+	ID                  uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	OrgID               uuid.UUID `gorm:"type:uuid;not null;uniqueIndex" json:"org_id"`
+	MaxUsers            *int      `json:"max_users"`
+	MaxStorageGB        *int      `json:"max_storage_gb"`
+	MaxEmailAccounts    *int      `json:"max_email_accounts"`
+	Features            string    `gorm:"type:jsonb;default:'{\"email_backup\":true,\"storage_analytics\":true,\"user_management\":true,\"api_access\":false}'" json:"features"`
+	EmailRetentionDays  *int      `json:"email_retention_days"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+
+	// Relationships
+	Organization Organization `gorm:"foreignKey:OrgID" json:"organization,omitempty"`
+}
+
+// SyncHistory represents email sync operation history
+type SyncHistory struct {
+	ID               uuid.UUID `gorm:"type:uuid;primary_key;default:gen_random_uuid()" json:"id"`
+	AccountID        uuid.UUID `gorm:"type:uuid;not null" json:"account_id"`
+	SyncType         string    `gorm:"size:20;not null;check:sync_type IN ('full','incremental')" json:"sync_type"`
+	StartedAt        time.Time `gorm:"not null" json:"started_at"`
+	CompletedAt      *time.Time `json:"completed_at"`
+	Status           string    `gorm:"size:20;not null;check:status IN ('running','completed','failed','cancelled')" json:"status"`
+	EmailsProcessed  int       `gorm:"default:0" json:"emails_processed"`
+	EmailsAdded      int       `gorm:"default:0" json:"emails_added"`
+	EmailsUpdated    int       `gorm:"default:0" json:"emails_updated"`
+	ErrorMessage     string    `gorm:"type:text" json:"error_message"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
+
+	// Relationships
+	Account EmailAccount `gorm:"foreignKey:AccountID" json:"account,omitempty"`
+}
+
+// BeforeCreate hooks for organization models
+func (r *Role) BeforeCreate(tx *gorm.DB) error {
+	if r.ID == uuid.Nil {
+		r.ID = uuid.New()
+	}
+	return nil
+}
+
+func (o *Organization) BeforeCreate(tx *gorm.DB) error {
+	if o.ID == uuid.Nil {
+		o.ID = uuid.New()
+	}
+	return nil
+}
+
+func (uo *UserOrganization) BeforeCreate(tx *gorm.DB) error {
+	if uo.ID == uuid.Nil {
+		uo.ID = uuid.New()
+	}
+	return nil
+}
+
+func (os *OrganizationSettings) BeforeCreate(tx *gorm.DB) error {
+	if os.ID == uuid.Nil {
+		os.ID = uuid.New()
+	}
+	return nil
+}
+
+func (sh *SyncHistory) BeforeCreate(tx *gorm.DB) error {
+	if sh.ID == uuid.Nil {
+		sh.ID = uuid.New()
+	}
+	return nil
+}
+
+// Helper methods for Role
+func (r *Role) IsAdmin() bool {
+	return r.Name == "admin"
+}
+
+func (r *Role) IsDistributor() bool {
+	return r.Name == "distributor"
+}
+
+func (r *Role) IsDealer() bool {
+	return r.Name == "dealer"
+}
+
+func (r *Role) IsClient() bool {
+	return r.Name == "client"
+}
+
+func (r *Role) IsEndUser() bool {
+	return r.Name == "end_user"
+}
+
+// Helper methods for Organization
+func (o *Organization) IsSystem() bool {
+	return o.Type == "system"
+}
+
+func (o *Organization) IsDistributor() bool {
+	return o.Type == "distributor"
+}
+
+func (o *Organization) IsDealer() bool {
+	return o.Type == "dealer"
+}
+
+func (o *Organization) IsClient() bool {
+	return o.Type == "client"
+}
+
+// Get organization hierarchy path
+func (o *Organization) GetHierarchyPath(db *gorm.DB) ([]Organization, error) {
+	var path []Organization
+	current := *o
+	
+	for {
+		path = append([]Organization{current}, path...) // Prepend to maintain order
+		
+		if current.ParentOrgID == nil {
+			break
+		}
+		
+		var parent Organization
+		if err := db.First(&parent, *current.ParentOrgID).Error; err != nil {
+			return nil, err
+		}
+		current = parent
+	}
+	
+	return path, nil
+}
+
+// Check if user can manage this organization
+func (o *Organization) CanUserManage(db *gorm.DB, userID uuid.UUID) bool {
+	var userOrg UserOrganization
+	var role Role
+	
+	// Get user's role in this organization or parent organization
+	err := db.Joins("JOIN roles ON roles.id = user_organizations.role_id").
+		Where("user_organizations.user_id = ? AND user_organizations.organization_id = ?", userID, o.ID).
+		First(&userOrg).Error
+	
+	if err != nil {
+		// Check parent organizations
+		if o.ParentOrgID != nil {
+			var parent Organization
+			if db.First(&parent, *o.ParentOrgID).Error == nil {
+				return parent.CanUserManage(db, userID)
+			}
+		}
+		return false
+	}
+	
+	if err := db.First(&role, userOrg.RoleID).Error; err != nil {
+		return false
+	}
+	
+	// Admin can manage everything, others can manage their level and below
+	return role.Level <= 3 // admin, distributor, dealer can manage
 }
