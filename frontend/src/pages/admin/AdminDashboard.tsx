@@ -42,6 +42,72 @@ import { isAdmin, getRoleDisplayName, canAccess } from '../../utils/roleUtils'
 import { statisticsAPI, formatBytes, type SystemStats, type TopOrganization } from '../../services/api'
 import { useNavigate } from 'react-router-dom'
 
+// Simple Stat Card (End User Dashboard style)
+interface SimpleStatCardProps {
+  title: string
+  value: string | number
+  icon: React.ElementType
+  trend?: number
+  color?: string
+}
+
+const SimpleStatCard = ({ title, value, icon, trend, color = 'blue.500' }: SimpleStatCardProps) => {
+  return (
+    <Card
+      bg="white"
+      border="1px solid"
+      borderColor="gray.200"
+      borderRadius="8px"
+      transition="all 0.15s"
+      _hover={{
+        bg: 'gray.50',
+      }}
+    >
+      <CardBody p={5}>
+        <VStack align="stretch" spacing={4}>
+          <HStack justify="space-between" align="start">
+            <Box
+              p={2}
+              borderRadius="lg"
+              bg={`${color.split('.')[0]}.50`}
+            >
+              <Icon as={icon} color={color} boxSize={5} />
+            </Box>
+            {trend !== undefined && (
+              <Badge
+                variant="subtle"
+                colorScheme={trend > 0 ? 'green' : 'red'}
+                fontSize="xs"
+                borderRadius="full"
+              >
+                {trend > 0 ? '+' : ''}{trend}%
+              </Badge>
+            )}
+          </HStack>
+          
+          <VStack align="start" spacing={1}>
+            <Text 
+              fontSize="2xl" 
+              fontWeight="semibold" 
+              color="gray.900"
+              lineHeight="none"
+            >
+              {value}
+            </Text>
+            <Text 
+              fontSize="sm" 
+              color="gray.500" 
+              fontWeight="normal"
+            >
+              {title}
+            </Text>
+          </VStack>
+        </VStack>
+      </CardBody>
+    </Card>
+  )
+}
+
 // Quick action card component
 const QuickActionCard: React.FC<{
   title: string
@@ -269,35 +335,30 @@ export const AdminDashboard: React.FC = () => {
                 
                 {systemStats ? (
                   <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
-                    <UserStatCard
+                    <SimpleStatCard
                       title="Total Users"
                       value={systemStats.total_users}
-                      helpText={`${systemStats.active_users} active users`}
-                      loading={isLoading}
-                      size="lg"
+                      icon={FiUsers}
+                      color="blue.500"
+                      trend={systemStats.active_users > 0 ? 12 : undefined}
                     />
-                    <StatCard
+                    <SimpleStatCard
                       title="Organizations"
                       value={systemStats.total_organizations}
                       icon={FiServer}
                       color="green.500"
-                      helpText={`${systemStats.organization_counts.distributor || 0} distributors, ${systemStats.organization_counts.dealer || 0} dealers`}
-                      loading={isLoading}
-                      size="lg"
                     />
-                    <EmailStatCard
+                    <SimpleStatCard
                       title="Email Accounts"
                       value={systemStats.total_email_accounts}
-                      helpText={`${systemStats.total_emails.toLocaleString()} emails stored`}
-                      loading={isLoading}
-                      size="lg"
+                      icon={FiMail}
+                      color="purple.500"
                     />
-                    <StorageStatCard
+                    <SimpleStatCard
                       title="Storage Used"
                       value={formatBytes(systemStats.total_storage_bytes)}
-                      helpText={`${systemStats.total_storage_gb.toFixed(2)} GB total`}
-                      loading={isLoading}
-                      size="lg"
+                      icon={FiHardDrive}
+                      color="orange.500"
                     />
                   </SimpleGrid>
                 ) : (

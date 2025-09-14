@@ -18,6 +18,7 @@ import {
   Flex,
   useColorModeValue,
   Progress,
+  Button,
 } from '@chakra-ui/react'
 import { 
   FiUsers, 
@@ -32,6 +33,8 @@ import {
   FiEye,
   FiShield,
   FiDatabase,
+  FiHardDrive,
+  FiClock,
 } from 'react-icons/fi'
 import { MdPersonAdd, MdSupervisorAccount } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
@@ -72,6 +75,72 @@ interface TeamUsage {
   storage_used: number
   email_accounts: number
   activity_score: number
+}
+
+// Simple Stat Card (End User Dashboard style)
+interface SimpleStatCardProps {
+  title: string
+  value: string | number
+  icon: React.ElementType
+  trend?: number
+  color?: string
+}
+
+const SimpleStatCard = ({ title, value, icon, trend, color = 'blue.500' }: SimpleStatCardProps) => {
+  return (
+    <Card
+      bg="white"
+      border="1px solid"
+      borderColor="gray.200"
+      borderRadius="8px"
+      transition="all 0.15s"
+      _hover={{
+        bg: 'gray.50',
+      }}
+    >
+      <CardBody p={5}>
+        <VStack align="stretch" spacing={4}>
+          <HStack justify="space-between" align="start">
+            <Box
+              p={2}
+              borderRadius="lg"
+              bg={`${color.split('.')[0]}.50`}
+            >
+              <Icon as={icon} color={color} boxSize={5} />
+            </Box>
+            {trend !== undefined && (
+              <Badge
+                variant="subtle"
+                colorScheme={trend > 0 ? 'green' : 'red'}
+                fontSize="xs"
+                borderRadius="full"
+              >
+                {trend > 0 ? '+' : ''}{trend}%
+              </Badge>
+            )}
+          </HStack>
+          
+          <VStack align="start" spacing={1}>
+            <Text 
+              fontSize="2xl" 
+              fontWeight="semibold" 
+              color="gray.900"
+              lineHeight="none"
+            >
+              {value}
+            </Text>
+            <Text 
+              fontSize="sm" 
+              color="gray.500" 
+              fontWeight="normal"
+            >
+              {title}
+            </Text>
+          </VStack>
+        </VStack>
+      </CardBody>
+    </Card>
+  )
 }
 
 // User action card component
@@ -383,10 +452,10 @@ export const ClientDashboard: React.FC = () => {
             <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
               <VStack align="flex-start" spacing={2}>
                 <Text fontSize="2xl" fontWeight="bold">
-                  Organization Management
+                  Welcome back, {user?.email?.split('@')[0]}
                 </Text>
                 <HStack spacing={3} wrap="wrap">
-                  <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                  <Badge colorScheme="orange" px={3} py={1} borderRadius="full">
                     {getRoleDisplayName(user?.role)}
                   </Badge>
                   {user?.primary_org && (
@@ -398,18 +467,15 @@ export const ClientDashboard: React.FC = () => {
                     Team Administrator
                   </Badge>
                 </HStack>
-                <Text fontSize="sm" color="gray.500">
-                  Manage your organization's email backup and team members
-                </Text>
               </VStack>
-              <UserActionCard
-                title="Refresh"
-                description="Update team data"
-                icon={FiRefreshCw}
-                color="blue.500"
+              <Button
+                leftIcon={<FiRefreshCw />}
                 onClick={loadClientData}
-                disabled={isLoading}
-              />
+                isLoading={isLoading}
+                size="sm"
+              >
+                Refresh Data
+              </Button>
             </Flex>
           </CardBody>
         </Card>
@@ -417,39 +483,39 @@ export const ClientDashboard: React.FC = () => {
         {/* Organization Statistics */}
         <Box>
           <Heading size="md" mb={6} display="flex" alignItems="center">
-            <Icon as={FiTarget} mr={3} color="blue.500" />
+            <Icon as={FiTarget} mr={3} color="orange.500" />
             Organization Overview
           </Heading>
           
           {clientStats ? (
             <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
-              <UserStatCard
+              <SimpleStatCard
                 title="Team Members"
                 value={clientStats.total_users}
-                helpText={`${clientStats.active_users} active, ${clientStats.pending_users} pending`}
-                loading={isLoading}
-                size="lg"
+                icon={FiUsers}
+                color="blue.500"
+                trend={6}
               />
-              <EmailStatCard
+              <SimpleStatCard
                 title="Email Accounts"
                 value={clientStats.total_email_accounts}
-                helpText={`${clientStats.total_emails.toLocaleString()} emails stored`}
-                loading={isLoading}
-                size="lg"
+                icon={FiMail}
+                color="purple.500"
+                trend={9}
               />
-              <StorageStatCard
+              <SimpleStatCard
                 title="Total Storage"
                 value={formatBytes(clientStats.total_storage)}
-                helpText="Organization usage"
-                loading={isLoading}
-                size="lg"
+                icon={FiHardDrive}
+                color="orange.500"
+                trend={14}
               />
-              <ActivityStatCard
+              <SimpleStatCard
                 title="Backup Status"
                 value={clientStats.backup_frequency}
-                helpText={`Last: ${new Date(clientStats.last_backup).toLocaleDateString()}`}
-                loading={isLoading}
-                size="lg"
+                icon={FiClock}
+                color="green.500"
+                trend={2}
               />
             </SimpleGrid>
           ) : (
@@ -465,7 +531,7 @@ export const ClientDashboard: React.FC = () => {
         {/* Team Management Actions */}
         <Box>
           <Heading size="md" mb={6} display="flex" alignItems="center">
-            <Icon as={FiSettings} mr={3} color="blue.500" />
+            <Icon as={FiSettings} mr={3} color="orange.500" />
             Team Management
           </Heading>
           <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>

@@ -46,6 +46,7 @@ interface ActionCardProps {
   icon: React.ElementType
   onClick: () => void
   badge?: string
+  color?: string
 }
 
 // Minimal Linear/Notion style action card
@@ -54,7 +55,8 @@ const ActionCard = ({
   subtitle, 
   icon, 
   onClick, 
-  badge 
+  badge,
+  color = 'blue.500'
 }: ActionCardProps) => {
   return (
     <Card
@@ -75,10 +77,10 @@ const ActionCard = ({
           <HStack justify="space-between" w="full">
             <Box
               p={2}
-              borderRadius="6px"
-              bg="gray.100"
+              borderRadius="lg"
+              bg={`${color.split('.')[0]}.50`}
             >
-              <Icon as={icon} color="gray.600" boxSize={5} />
+              <Icon as={icon} color={color} boxSize={5} />
             </Box>
             {badge && (
               <Badge 
@@ -123,10 +125,11 @@ interface StatCardProps {
   value: string | number
   icon: React.ElementType
   trend?: number
+  color?: string
 }
 
-// Minimal Linear/Notion style stat card
-const StatCard = ({ title, value, icon, trend }: StatCardProps) => {
+// Colorful Gmail/Outlook style stat card
+const StatCard = ({ title, value, icon, trend, color = 'blue.500' }: StatCardProps) => {
   return (
     <Card
       bg="white"
@@ -143,10 +146,10 @@ const StatCard = ({ title, value, icon, trend }: StatCardProps) => {
           <HStack justify="space-between" align="start">
             <Box
               p={2}
-              borderRadius="6px"
-              bg="gray.100"
+              borderRadius="lg"
+              bg={`${color.split('.')[0]}.50`}
             >
-              <Icon as={icon} color="gray.600" boxSize={5} />
+              <Icon as={icon} color={color} boxSize={5} />
             </Box>
             {trend !== undefined && (
               <Badge
@@ -411,13 +414,28 @@ export const Dashboard = () => {
         <VStack align="stretch" spacing={8} maxW="1200px" mx="auto">
           {/* Minimal Header */}
           <Flex justify="space-between" align="center">
-            <VStack align="start" spacing={1}>
+            <VStack align="start" spacing={2}>
               <Text fontSize="xl" fontWeight="semibold" color="gray.900">
                 Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}, {capitalizedFirstName}
               </Text>
               <Text fontSize="sm" color="gray.500">
                 Manage your email accounts and backup activity
               </Text>
+              <HStack spacing={3} wrap="wrap" mt={2}>
+                <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                  End User
+                </Badge>
+                {totalAccounts > 0 && (
+                  <Badge colorScheme="green" px={3} py={1} borderRadius="full">
+                    {totalAccounts} Account{totalAccounts > 1 ? 's' : ''} Connected
+                  </Badge>
+                )}
+                {activeAccounts > 0 && (
+                  <Badge colorScheme="orange" px={3} py={1} borderRadius="full">
+                    {activeAccounts} Active
+                  </Badge>
+                )}
+              </HStack>
             </VStack>
             
             <Button
@@ -442,6 +460,7 @@ export const Dashboard = () => {
                 subtitle="Connect any email provider"
                 icon={FiPlus}
                 onClick={() => navigate('/accounts')}
+                color="green.500"
               />
               
               <ActionCard
@@ -450,6 +469,7 @@ export const Dashboard = () => {
                 icon={FiInbox}
                 onClick={() => navigate('/emails')}
                 badge={totalAccounts > 0 ? 'Ready' : undefined}
+                color="blue.500"
               />
               
               <ActionCard
@@ -459,6 +479,7 @@ export const Dashboard = () => {
                 onClick={() => {
                   accounts.forEach(acc => syncAccount(acc.id))
                 }}
+                color="purple.500"
               />
               
               <ActionCard
@@ -466,6 +487,7 @@ export const Dashboard = () => {
                 subtitle="Configure backup"
                 icon={FiSettings}
                 onClick={() => navigate('/settings')}
+                color="orange.500"
               />
             </SimpleGrid>
           </VStack>
@@ -481,22 +503,26 @@ export const Dashboard = () => {
                 title="Total Accounts"
                 value={totalAccounts}
                 icon={FiUsers}
+                color="blue.500"
               />
               <StatCard
                 title="Active Accounts"
                 value={activeAccounts}
                 icon={FiActivity}
                 trend={activeAccounts > 0 ? 12 : undefined}
+                color="green.500"
               />
               <StatCard
                 title="Gmail Accounts"
                 value={gmailAccounts}
                 icon={MdEmail}
+                color="red.500"
               />
               <StatCard
                 title="Office 365"
                 value={office365Accounts}
                 icon={MdBusiness}
+                color="blue.600"
               />
             </SimpleGrid>
           </VStack>
@@ -533,21 +559,25 @@ Recalculate
                   title="Total Storage"
                   value={storageStats.formatted.total_size}
                   icon={FiHardDrive}
+                  color="purple.500"
                 />
                 <StatCard
                   title="Total Emails"
                   value={storageStats.total_emails.toLocaleString()}
                   icon={FiMail}
+                  color="blue.500"
                 />
                 <StatCard
                   title="Content Size"
                   value={storageStats.formatted.content_size}
                   icon={FiArchive}
+                  color="orange.500"
                 />
                 <StatCard
                   title="Attachments"
                   value={`${storageStats.attachment_count.toLocaleString()} (${storageStats.formatted.attachment_size})`}
                   icon={FiPieChart}
+                  color="teal.500"
                 />
               </SimpleGrid>
             ) : (

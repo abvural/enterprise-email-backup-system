@@ -43,11 +43,28 @@ import {
   FiUser,
   FiHelpCircle,
   FiBell,
-  FiGrid,
-  FiTrendingUp,
-  FiDatabase,
+  FiInbox,
+  FiSend,
+  FiArchive,
+  FiTrash,
+  FiActivity,
 } from 'react-icons/fi'
-import { FaBuilding } from 'react-icons/fa'
+import { 
+  MdDashboard, 
+  MdBusiness, 
+  MdStorefront, 
+  MdGroup, 
+  MdPersonAdd, 
+  MdPeople, 
+  MdAccountTree,
+  MdAdd,
+  MdEmail,
+  MdInbox,
+  MdWork,
+  MdManageAccounts,
+  MdAnalytics,
+  MdAdminPanelSettings
+} from 'react-icons/md'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../../stores/authStore'
 import { getRoleDisplayName, canAccess } from '../../utils/roleUtils'
@@ -102,46 +119,35 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     items.push({
       id: 'dashboard',
       label: 'Dashboard',
-      icon: FiHome,
+      icon: MdDashboard,
       path: '/admin/dashboard',
     })
 
-    // Organization Management (Admin only - visible at top level)
+    // Organization Management (Admin only - Level 1)
     if (user?.role?.level === 1) {
       items.push({
-        id: 'organizations-main',
-        label: 'Organizasyon Yönetimi',
-        icon: FaBuilding,
-        path: '/admin/organizations',
-        badge: 'Yeni',
-      })
-    }
-
-    // System Management (Admin only - Level 1)
-    if (user?.role?.level === 1) {
-      items.push({
-        id: 'system',
-        label: 'System Management',
-        icon: FiGrid,
+        id: 'organization-management',
+        label: 'Organization Management',
+        icon: MdBusiness,
         children: [
           {
-            id: 'all-organizations',
-            label: 'All Organizations',
-            icon: FaBuilding,
+            id: 'organizations',
+            label: 'Organizations',
+            icon: MdAccountTree,
             path: '/admin/organizations',
             requiredRole: 1,
           },
           {
             id: 'system-stats',
-            label: 'System Statistics',
-            icon: FiBarChart,
+            label: 'Statistics',
+            icon: MdAnalytics,
             path: '/admin/system-stats',
             requiredRole: 1,
           },
           {
             id: 'system-settings',
-            label: 'System Settings',
-            icon: FiSettings,
+            label: 'Settings',
+            icon: MdAdminPanelSettings,
             path: '/admin/system-settings',
             requiredRole: 1,
           },
@@ -152,28 +158,28 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     // Network Management (Distributor only - Level 2)
     if (user?.role?.level === 2) {
       items.push({
-        id: 'network',
+        id: 'network-management',
         label: 'Network Management',
-        icon: FiTrendingUp,
+        icon: MdWork,
         children: [
           {
             id: 'dealers',
-            label: 'Manage Dealers',
-            icon: FiUsers,
+            label: 'Dealers',
+            icon: MdStorefront,
             path: '/admin/dealers',
             requiredRole: 2,
           },
           {
             id: 'clients',
-            label: 'Manage Clients',
-            icon: FiServer,
+            label: 'Clients',
+            icon: MdBusiness,
             path: '/admin/clients',
             requiredRole: 2,
           },
           {
             id: 'network-stats',
-            label: 'Network Statistics',
-            icon: FiBarChart,
+            label: 'Analytics',
+            icon: MdAnalytics,
             path: '/admin/network-stats',
             requiredRole: 2,
           },
@@ -186,26 +192,26 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       items.push({
         id: 'client-management',
         label: 'Client Management',
-        icon: FiServer,
+        icon: MdGroup,
         children: [
           {
             id: 'my-clients',
             label: 'My Clients',
-            icon: FiServer,
+            icon: MdBusiness,
             path: '/admin/my-clients',
             requiredRole: 3,
           },
           {
             id: 'client-users',
-            label: 'Client Users',
-            icon: FiUsers,
+            label: 'Users',
+            icon: MdPeople,
             path: '/admin/client-users',
             requiredRole: 3,
           },
           {
             id: 'client-stats',
-            label: 'Client Statistics',
-            icon: FiBarChart,
+            label: 'Analytics',
+            icon: MdAnalytics,
             path: '/admin/client-stats',
             requiredRole: 3,
           },
@@ -218,32 +224,40 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       items.push({
         id: 'user-management',
         label: 'User Management',
-        icon: FiUsers,
+        icon: MdManageAccounts,
         children: [
           {
             id: 'end-users',
             label: 'End Users',
-            icon: FiUsers,
+            icon: MdPeople,
             path: '/admin/end-users',
             requiredRole: 4,
           },
           {
             id: 'user-permissions',
-            label: 'User Permissions',
+            label: 'Permissions',
             icon: FiShield,
             path: '/admin/user-permissions',
             requiredRole: 4,
           },
           {
             id: 'usage-stats',
-            label: 'Usage Statistics',
-            icon: FiBarChart,
+            label: 'Analytics',
+            icon: MdAnalytics,
             path: '/admin/usage-stats',
             requiredRole: 4,
           },
         ],
       })
     }
+
+    // Settings (all admin roles)
+    items.push({
+      id: 'settings',
+      label: 'Settings',
+      icon: FiSettings,
+      path: '/admin/settings',
+    })
 
     return items
   }, [user])
@@ -290,13 +304,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
             justifyContent="flex-start"
             pl={4 + level * 4}
             pr={2}
-            py={3}
+            py={2}
             h="auto"
-            fontWeight="medium"
+            fontWeight="normal"
             fontSize="sm"
             color={isActive ? 'blue.600' : textColor}
             bg={isActive ? activeItemBg : 'transparent'}
             _hover={{ bg: hoverItemBg }}
+            borderRadius="md"
             onClick={() => toggleGroup(item.id)}
             rightIcon={
               <Icon
@@ -313,7 +328,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           </Button>
 
           {!isCollapsed && (
-            <VStack align="stretch" spacing={0} pl={4}>
+            <VStack align="stretch" spacing={1} pl={2} mt={1}>
               {item.children?.map(child => renderNavItem(child, level + 1))}
             </VStack>
           )}
@@ -327,13 +342,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
         variant="ghost"
         justifyContent="flex-start"
         pl={4 + level * 4}
-        py={3}
+        py={2}
         h="auto"
-        fontWeight="medium"
+        fontWeight="normal"
         fontSize="sm"
         color={isActive ? 'blue.600' : textColor}
         bg={isActive ? activeItemBg : 'transparent'}
         _hover={{ bg: hoverItemBg }}
+        borderRadius="md"
         onClick={() => item.path && handleNavigate(item.path)}
       >
         <HStack spacing={3} flex={1}>
@@ -357,20 +373,20 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
           <Box
             w={8}
             h={8}
-            bg="blue.500"
-            borderRadius="md"
+            bg="green.500"
+            borderRadius="lg"
             display="flex"
             alignItems="center"
             justifyContent="center"
           >
-            <Icon as={FiDatabase} color="white" boxSize={4} />
+            <Icon as={MdEmail} color="white" boxSize={5} />
           </Box>
           <VStack align="flex-start" spacing={0}>
             <Text fontWeight="bold" fontSize="md" color={textColor}>
               Email Backup
             </Text>
             <Text fontSize="xs" color={mutedTextColor}>
-              Enterprise System
+              Administration
             </Text>
           </VStack>
         </HStack>
@@ -392,7 +408,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       </Box>
 
       {/* Navigation */}
-      <VStack spacing={2} align="stretch" flex={1} p={4} overflowY="auto">
+      <VStack spacing={1} align="stretch" flex={1} px={3} py={4} overflowY="auto">
         {navigationItems.map(item => renderNavItem(item))}
       </VStack>
 
@@ -427,7 +443,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
     <Flex h="100vh" bg="gray.50">
       {/* Desktop Sidebar */}
       <Box
-        w="280px"
+        w="240px"
         bg={sidebarBg}
         borderRight="1px"
         borderColor={borderColor}
@@ -457,7 +473,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = ({
       </Drawer>
 
       {/* Main Content */}
-      <Box flex={1} ml={{ base: 0, lg: '280px' }}>
+      <Box flex={1} ml={{ base: 0, lg: '240px' }}>
         {/* Header */}
         <Box
           bg={headerBg}

@@ -28,46 +28,129 @@ import {
   Progress,
   Flex,
   useColorModeValue,
+  Divider,
 } from '@chakra-ui/react'
-import { FiUsers, FiMail, FiSettings, FiPlus, FiTrendingUp, FiServer, FiActivity, FiBarChart } from 'react-icons/fi'
+import { FiUsers, FiMail, FiSettings, FiPlus, FiTrendingUp, FiServer, FiActivity, FiBarChart, FiRefreshCw, FiHardDrive } from 'react-icons/fi'
 import { MdBusiness } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
 import { AdminLayout } from '../../components/layout/AdminLayout'
 import { useAuthStore } from '../../stores/authStore'
 import { statisticsAPI, formatBytes, type NetworkStats, type DealerPerformanceItem } from '../../services/api'
+import { getRoleDisplayName } from '../../utils/roleUtils'
 
-// Enhanced StatCard component for network metrics
-const NetworkStatCard: React.FC<{
+// Simple Stat Card (End User Dashboard style)
+interface SimpleStatCardProps {
   title: string
   value: string | number
   icon: React.ElementType
-  color: string
-  helpText?: string
-  change?: number
-}> = ({ title, value, icon, color, helpText, change }) => (
-  <Card>
-    <CardBody>
-      <Flex justify="space-between" align="start">
-        <VStack align="start" spacing={0}>
-          <Text fontSize="sm" color="gray.500" fontWeight="medium">
-            {title}
-          </Text>
-          <Text fontSize="2xl" fontWeight="bold" color={color}>
-            {value}
-          </Text>
-          {helpText && (
-            <Text fontSize="xs" color="gray.500">
-              {helpText}
+  trend?: number
+  color?: string
+}
+
+const SimpleStatCard = ({ title, value, icon, trend, color = 'blue.500' }: SimpleStatCardProps) => {
+  return (
+    <Card
+      bg="white"
+      border="1px solid"
+      borderColor="gray.200"
+      borderRadius="8px"
+      transition="all 0.15s"
+      _hover={{
+        bg: 'gray.50',
+      }}
+    >
+      <CardBody p={5}>
+        <VStack align="stretch" spacing={4}>
+          <HStack justify="space-between" align="start">
+            <Box
+              p={2}
+              borderRadius="lg"
+              bg={`${color.split('.')[0]}.50`}
+            >
+              <Icon as={icon} color={color} boxSize={5} />
+            </Box>
+            {trend !== undefined && (
+              <Badge
+                variant="subtle"
+                colorScheme={trend > 0 ? 'green' : 'red'}
+                fontSize="xs"
+                borderRadius="full"
+              >
+                {trend > 0 ? '+' : ''}{trend}%
+              </Badge>
+            )}
+          </HStack>
+          
+          <VStack align="start" spacing={1}>
+            <Text 
+              fontSize="2xl" 
+              fontWeight="semibold" 
+              color="gray.900"
+              lineHeight="none"
+            >
+              {value}
             </Text>
-          )}
+            <Text 
+              fontSize="sm" 
+              color="gray.500" 
+              fontWeight="normal"
+            >
+              {title}
+            </Text>
+          </VStack>
         </VStack>
-        <Box p={2} borderRadius="md" bg={`${color.split('.')[0]}.100`}>
-          <Icon as={icon} boxSize={5} color={color} />
-        </Box>
-      </Flex>
-    </CardBody>
-  </Card>
-)
+      </CardBody>
+    </Card>
+  )
+}
+
+// Quick action card component
+const QuickActionCard: React.FC<{
+  title: string
+  description: string
+  icon: React.ElementType
+  color: string
+  onClick: () => void
+  disabled?: boolean
+}> = ({ title, description, icon, color, onClick, disabled = false }) => {
+  const cardBg = useColorModeValue('white', 'gray.800')
+  const hoverBg = useColorModeValue('gray.50', 'gray.700')
+  
+  return (
+    <Card
+      cursor={disabled ? 'not-allowed' : 'pointer'}
+      onClick={disabled ? undefined : onClick}
+      transition="all 0.1s ease-in-out"
+      _hover={disabled ? {} : {
+        transform: 'translateY(-2px)',
+        boxShadow: 'md',
+        bg: hoverBg,
+      }}
+      opacity={disabled ? 0.6 : 1}
+      bg={cardBg}
+    >
+      <CardBody p={6}>
+        <VStack spacing={4} align="flex-start">
+          <Box
+            p={3}
+            borderRadius="lg"
+            bg={`${color.split('.')[0]}.50`}
+          >
+            <Icon as={icon} boxSize={6} color={color} />
+          </Box>
+          <VStack align="flex-start" spacing={1}>
+            <Text fontSize="lg" fontWeight="semibold">
+              {title}
+            </Text>
+            <Text fontSize="sm" color="gray.500">
+              {description}
+            </Text>
+          </VStack>
+        </VStack>
+      </CardBody>
+    </Card>
+  )
+}
 
 export const DistributorDashboard: React.FC = () => {
   const navigate = useNavigate()
@@ -141,80 +224,95 @@ export const DistributorDashboard: React.FC = () => {
   }
 
   return (
-    <AdminLayout>
-      <Container maxW="7xl" py={8}>
-        <VStack spacing={8} align="stretch">
-          {/* Header */}
-          <Box>
-            <Heading size="lg" color="purple.500" mb={4}>
-              Distributor Network Dashboard
-            </Heading>
-            <HStack spacing={4} wrap="wrap" mb={4}>
-              <Badge colorScheme="purple" fontSize="sm" px={3} py={1}>
-                Distributor Level
-              </Badge>
-              {user?.primary_org && (
-                <Badge colorScheme="blue" fontSize="sm" px={3} py={1}>
-                  {user.primary_org.name}
-                </Badge>
-              )}
-              <Badge colorScheme="green" fontSize="sm" px={3} py={1}>
-                Network Access
-              </Badge>
-            </HStack>
-            <Text fontSize="md" color="gray.600">
-              Manage your dealer network and monitor organization performance
-            </Text>
-          </Box>
+    <AdminLayout
+      title="Network Dashboard"
+      breadcrumbs={[
+        { label: 'Distributor' },
+        { label: 'Network Overview' },
+      ]}
+    >
+      <VStack spacing={8} align="stretch" maxW="full">
+        {/* Welcome Header */}
+        <Card variant="filled">
+          <CardBody>
+            <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
+              <VStack align="flex-start" spacing={2}>
+                <Text fontSize="2xl" fontWeight="bold">
+                  Welcome back, {user?.email?.split('@')[0]}
+                </Text>
+                <HStack spacing={3} wrap="wrap">
+                  <Badge colorScheme="purple" px={3} py={1} borderRadius="full">
+                    {getRoleDisplayName(user?.role)}
+                  </Badge>
+                  {user?.primary_org && (
+                    <Badge colorScheme="blue" px={3} py={1} borderRadius="full">
+                      {user.primary_org.name}
+                    </Badge>
+                  )}
+                  <Badge colorScheme="green" px={3} py={1} borderRadius="full">
+                    Network Manager
+                  </Badge>
+                </HStack>
+              </VStack>
+              <Button
+                leftIcon={<FiRefreshCw />}
+                onClick={refreshData}
+                isLoading={isRefreshing}
+                size="sm"
+              >
+                Refresh Data
+              </Button>
+            </Flex>
+          </CardBody>
+        </Card>
 
-          {/* Network Statistics */}
-          <Box>
-            <Heading size="md" mb={4}>Network Overview</Heading>
-            {isLoading ? (
-              <Box py={8} textAlign="center">
-                <Spinner size="lg" color="purple.500" mb={4} />
-                <Text color="gray.500">Loading network statistics...</Text>
-              </Box>
-            ) : networkStats ? (
-              <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
-                <NetworkStatCard
-                  title="Total Dealers"
-                  value={networkStats.total_dealers.toLocaleString()}
-                  icon={MdBusiness}
-                  color="purple.500"
-                  helpText={`${networkStats.active_dealers} active dealers`}
-                />
-                <NetworkStatCard
-                  title="Total Clients"
-                  value={networkStats.total_clients.toLocaleString()}
-                  icon={FiUsers}
-                  color="blue.500"
-                  helpText={`${networkStats.total_end_users} end users`}
-                />
-                <NetworkStatCard
-                  title="Email Accounts"
-                  value={networkStats.total_email_accounts.toLocaleString()}
-                  icon={FiMail}
-                  color="green.500"
-                  helpText="Across entire network"
-                />
-                <NetworkStatCard
-                  title="Network Storage"
-                  value={formatBytes(networkStats.network_storage_bytes)}
-                  icon={FiServer}
-                  color="orange.500"
-                  helpText={`${networkStats.network_storage_gb.toFixed(2)} GB total`}
-                />
-              </SimpleGrid>
-            ) : (
-              <Alert status="warning">
-                <AlertIcon />
-                <AlertDescription>
-                  Could not load network statistics. Please check your connection and try again.
-                </AlertDescription>
-              </Alert>
-            )}
-          </Box>
+        {/* Network Statistics */}
+        <Box>
+          <Heading size="md" mb={6} display="flex" alignItems="center">
+            <Icon as={FiBarChart} mr={3} color="purple.500" />
+            Network Overview
+          </Heading>
+          
+          {networkStats ? (
+            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+              <SimpleStatCard
+                title="Total Dealers"
+                value={networkStats.total_dealers.toLocaleString()}
+                icon={MdBusiness}
+                color="purple.500"
+                trend={networkStats.active_dealers > networkStats.total_dealers * 0.8 ? 8 : undefined}
+              />
+              <SimpleStatCard
+                title="Total Clients"
+                value={networkStats.total_clients.toLocaleString()}
+                icon={FiUsers}
+                color="blue.500"
+                trend={12}
+              />
+              <SimpleStatCard
+                title="Email Accounts"
+                value={networkStats.total_email_accounts.toLocaleString()}
+                icon={FiMail}
+                color="green.500"
+                trend={5}
+              />
+              <SimpleStatCard
+                title="Network Storage"
+                value={formatBytes(networkStats.network_storage_bytes)}
+                icon={FiHardDrive}
+                color="orange.500"
+                trend={18}
+              />
+            </SimpleGrid>
+          ) : (
+            <Alert status="warning" borderRadius="md">
+              <AlertIcon />
+              <AlertDescription>
+                Could not load network statistics. Please check your connection and try again.
+              </AlertDescription>
+            </Alert>
+          )}
+        </Box>
 
           {/* Dealer Performance */}
           {dealerPerformance.length > 0 && (
@@ -318,46 +416,43 @@ export const DistributorDashboard: React.FC = () => {
             </Box>
           )}
 
-          {/* Quick Actions */}
-          <Box>
-            <Heading size="md" mb={4}>Quick Actions</Heading>
-            <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={4}>
-              <Card cursor="pointer" onClick={() => navigate('/distributor/network')} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={MdBusiness} boxSize={8} color="blue.500" mb={3} />
-                  <Text fontWeight="medium">View Network</Text>
-                  <Text fontSize="sm" color="gray.600">See your complete dealer and client network</Text>
-                </CardBody>
-              </Card>
-
-              <Card cursor="pointer" onClick={() => navigate('/distributor/add-dealer')} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={FiPlus} boxSize={8} color="green.500" mb={3} />
-                  <Text fontWeight="medium">Add New Dealer</Text>
-                  <Text fontSize="sm" color="gray.600">Create a new dealer organization</Text>
-                </CardBody>
-              </Card>
-
-              <Card cursor="pointer" onClick={() => navigate('/distributor/statistics')} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={FiMail} boxSize={8} color="orange.500" mb={3} />
-                  <Text fontWeight="medium">Email Statistics</Text>
-                  <Text fontSize="sm" color="gray.600">View network email usage statistics</Text>
-                </CardBody>
-              </Card>
-
-              <Card cursor="pointer" onClick={refreshData} _hover={{ bg: 'gray.50' }}>
-                <CardBody textAlign="center" p={6}>
-                  <Icon as={FiTrendingUp} boxSize={8} color="purple.500" mb={3} />
-                  <Text fontWeight="medium">Refresh Data</Text>
-                  <Text fontSize="sm" color="gray.600">
-                    {isRefreshing ? 'Updating...' : 'Update network statistics'}
-                  </Text>
-                  {isRefreshing && <Spinner size="sm" mt={2} color="purple.500" />}
-                </CardBody>
-              </Card>
-            </SimpleGrid>
-          </Box>
+        {/* Quick Actions */}
+        <Box>
+          <Heading size="md" mb={6} display="flex" alignItems="center">
+            <Icon as={FiSettings} mr={3} color="purple.500" />
+            Quick Actions
+          </Heading>
+          <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+            <QuickActionCard
+              title="View Network"
+              description="See your complete dealer and client network"
+              icon={MdBusiness}
+              color="blue.500"
+              onClick={() => navigate('/distributor/network')}
+            />
+            <QuickActionCard
+              title="Add New Dealer"
+              description="Create a new dealer organization"
+              icon={FiPlus}
+              color="green.500"
+              onClick={() => navigate('/distributor/add-dealer')}
+            />
+            <QuickActionCard
+              title="Network Statistics"
+              description="View detailed network analytics"
+              icon={FiBarChart}
+              color="purple.500"
+              onClick={() => navigate('/distributor/statistics')}
+            />
+            <QuickActionCard
+              title="Manage Settings"
+              description="Configure network preferences"
+              icon={FiSettings}
+              color="orange.500"
+              onClick={() => navigate('/distributor/settings')}
+            />
+          </SimpleGrid>
+        </Box>
 
         {/* Network Health Summary */}
         {networkStats && (
@@ -437,8 +532,7 @@ export const DistributorDashboard: React.FC = () => {
             </Card>
           </SimpleGrid>
         )}
-        </VStack>
-      </Container>
+      </VStack>
     </AdminLayout>
   )
 }

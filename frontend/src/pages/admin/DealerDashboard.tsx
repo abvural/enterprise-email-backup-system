@@ -17,6 +17,7 @@ import {
   AlertDescription,
   Flex,
   useColorModeValue,
+  Button,
 } from '@chakra-ui/react'
 import { 
   FiUsers, 
@@ -30,6 +31,7 @@ import {
   FiEye,
   FiUserPlus,
   FiActivity,
+  FiHardDrive,
 } from 'react-icons/fi'
 import { MdBusiness } from 'react-icons/md'
 import { useNavigate } from 'react-router-dom'
@@ -61,6 +63,72 @@ interface ClientPortfolio {
   last_activity: string
   status: 'active' | 'inactive' | 'pending'
   client_type: string
+}
+
+// Simple Stat Card (End User Dashboard style)
+interface SimpleStatCardProps {
+  title: string
+  value: string | number
+  icon: React.ElementType
+  trend?: number
+  color?: string
+}
+
+const SimpleStatCard = ({ title, value, icon, trend, color = 'blue.500' }: SimpleStatCardProps) => {
+  return (
+    <Card
+      bg="white"
+      border="1px solid"
+      borderColor="gray.200"
+      borderRadius="8px"
+      transition="all 0.15s"
+      _hover={{
+        bg: 'gray.50',
+      }}
+    >
+      <CardBody p={5}>
+        <VStack align="stretch" spacing={4}>
+          <HStack justify="space-between" align="start">
+            <Box
+              p={2}
+              borderRadius="lg"
+              bg={`${color.split('.')[0]}.50`}
+            >
+              <Icon as={icon} color={color} boxSize={5} />
+            </Box>
+            {trend !== undefined && (
+              <Badge
+                variant="subtle"
+                colorScheme={trend > 0 ? 'green' : 'red'}
+                fontSize="xs"
+                borderRadius="full"
+              >
+                {trend > 0 ? '+' : ''}{trend}%
+              </Badge>
+            )}
+          </HStack>
+          
+          <VStack align="start" spacing={1}>
+            <Text 
+              fontSize="2xl" 
+              fontWeight="semibold" 
+              color="gray.900"
+              lineHeight="none"
+            >
+              {value}
+            </Text>
+            <Text 
+              fontSize="sm" 
+              color="gray.500" 
+              fontWeight="normal"
+            >
+              {title}
+            </Text>
+          </VStack>
+        </VStack>
+      </CardBody>
+    </Card>
+  )
 }
 
 // Client action card component
@@ -324,7 +392,7 @@ export const DealerDashboard: React.FC = () => {
             <Flex justify="space-between" align="center" wrap="wrap" gap={4}>
               <VStack align="flex-start" spacing={2}>
                 <Text fontSize="2xl" fontWeight="bold">
-                  Client Portfolio Management
+                  Welcome back, {user?.email?.split('@')[0]}
                 </Text>
                 <HStack spacing={3} wrap="wrap">
                   <Badge colorScheme="teal" px={3} py={1} borderRadius="full">
@@ -339,18 +407,15 @@ export const DealerDashboard: React.FC = () => {
                     Portfolio Manager
                   </Badge>
                 </HStack>
-                <Text fontSize="sm" color="gray.500">
-                  Manage your client organizations and their users
-                </Text>
               </VStack>
-              <ClientActionCard
-                title="Refresh"
-                description="Update portfolio data"
-                icon={FiRefreshCw}
-                color="teal.500"
+              <Button
+                leftIcon={<FiRefreshCw />}
                 onClick={loadDealerData}
-                disabled={isLoading}
-              />
+                isLoading={isLoading}
+                size="sm"
+              >
+                Refresh Data
+              </Button>
             </Flex>
           </CardBody>
         </Card>
@@ -364,35 +429,33 @@ export const DealerDashboard: React.FC = () => {
           
           {dealerStats ? (
             <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
-              <StatCard
+              <SimpleStatCard
                 title="Total Clients"
                 value={dealerStats.total_clients}
-                icon={FiServer}
+                icon={MdBusiness}
                 color="teal.500"
-                helpText={`${dealerStats.active_clients} active, ${dealerStats.pending_clients} pending`}
-                loading={isLoading}
-                size="lg"
+                trend={15}
               />
-              <UserStatCard
+              <SimpleStatCard
                 title="Total Users"
                 value={dealerStats.total_users}
-                helpText="Across all clients"
-                loading={isLoading}
-                size="lg"
+                icon={FiUsers}
+                color="blue.500"
+                trend={8}
               />
-              <EmailStatCard
+              <SimpleStatCard
                 title="Email Accounts"
                 value={dealerStats.total_email_accounts}
-                helpText={`${dealerStats.total_emails.toLocaleString()} emails stored`}
-                loading={isLoading}
-                size="lg"
+                icon={FiMail}
+                color="purple.500"
+                trend={12}
               />
-              <StorageStatCard
+              <SimpleStatCard
                 title="Total Storage"
                 value={formatBytes(dealerStats.total_storage)}
-                helpText="Portfolio usage"
-                loading={isLoading}
-                size="lg"
+                icon={FiHardDrive}
+                color="orange.500"
+                trend={22}
               />
             </SimpleGrid>
           ) : (
